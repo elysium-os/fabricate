@@ -11,6 +11,20 @@
                 buildInputs = with pkgs; [ pkgconf openssl ];
                 nativeBuildInputs = with pkgs; [ ninja ];
             };
+
+            defaultPackage = pkgs.rustPlatform.buildRustPackage {
+                name = "fabricate";
+                src = self;
+
+                cargoLock.lockFile = ./Cargo.lock;
+
+                meta = {
+                    description = " Simple yet powerful meta buildsystem.";
+                    homepage = "https://github.com/elysium-os/fabricate";
+                    license = pkgs.lib.licenses.bsd3;
+                    maintainers = with pkgs.lib.maintainers; [ wux ];
+                };
+            };
         }
     );
 }
