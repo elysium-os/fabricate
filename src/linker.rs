@@ -1,0 +1,68 @@
+use mlua::{Lua, Result, Table, UserData};
+use ninja_writer::{escape, BuildVariables, RuleRef, RuleVariables, Variables};
+
+use crate::{executable::Executable, object::Object, FabContext};
+
+#[derive(Clone, Debug)]
+pub struct Linker {
+    name: String,
+    rule: RuleRef,
+}
+
+impl UserData for Linker {
+    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+        fields.add_field_method_get("name", |_, this| Ok(this.name.clone()));
+    }
+
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("link", |_: &Lua, this, (objects, output_filename, args): (Vec<Object>, String, Vec<String>)| {
+            this.rule
+                .build([output_filename])
+                .with(objects.into_iter().map(|obj| obj.path))
+                .variable("ARGUMENTS", args.join(" "));
+
+            Ok(())
+        });
+    }
+}
+
+impl Linker {
+    pub fn create(lua: &Lua, table: Table) -> Result<Linker> {
+        let mut fab_context = lua.app_data_mut::<FabContext>().unwrap();
+
+        let name: String = escape(table.get::<String>("name")?.as_str()).to_string();
+        let executable: Executable = table.get("executable")?;
+        let command: String = escape(table.get::<String>("command")?.as_str()).to_string();
+        let mut description: Option<String> = None;
+        if table.contains_key("description")? {
+            description = Some(escape(table.get::<String>("description")?.as_str()).to_string());
+        }
+
+        let rule_name = name.clone() + "_link";
+        if fab_context.rule_cache.contains(&name) {
+            panic!("Rule `{}` defined more than once", rule_name);
+        }
+        fab_context.rule_cache.push(name.clone());
+
+        let mut link_command: Vec<&str> = Vec::new();
+        for arg in command.split_whitespace() {
+            link_command.push(match arg {
+                "@EXEC@" => executable.path.to_str().unwrap(),
+                "@FLAGS@" => "$ARGUMENTS",
+                "@IN@" => "$in",
+                "@OUT@" => "$out",
+                arg if arg.starts_with("@") && arg.ends_with("@") => {
+                    panic!("Unknown embed `{}` in compiler linker `{}`", arg, name);
+                }
+                _ => arg,
+            });
+        }
+
+        let mut rule = fab_context.ninja.rule(&rule_name, link_command.join(" "));
+        if let Some(description) = description {
+            rule = rule.description(&description.replace("@OUT@", "$out").replace("@IN@", "$in"))
+        }
+
+        Ok(Linker { name, rule })
+    }
+}
