@@ -16,7 +16,8 @@
                 name = "fabricate";
                 src = self;
 
-                buildInputs = with pkgs; [ pkgconf openssl ];
+                buildInputs = with pkgs; [ openssl ];
+                nativeBuildInputs = with pkgs; [ pkgconf ];
 
                 cargoLock.lockFile = ./Cargo.lock;
 
