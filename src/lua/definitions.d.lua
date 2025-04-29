@@ -57,7 +57,7 @@ Compiler = {}
 
 ---@param sources Source[]
 ---@param args string[]
----@param include_dirs string[]?
+---@param include_dirs IncludeDirectory[]?
 ---@return Object[]
 function Compiler:build(sources, args, include_dirs) end
 
