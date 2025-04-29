@@ -65,9 +65,9 @@ function Compiler:build(sources, args, include_dirs) end
 Linker = {}
 
 ---@param objects Object[]
----@param output_filename string
 ---@param args string[]
-function Linker:link(objects, output_filename, args) end
+---@param output_filename string
+function Linker:link(objects, args, output_filename) end
 
 ---@class Source
 ---@field filename string

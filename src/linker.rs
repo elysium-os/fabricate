@@ -15,7 +15,7 @@ impl UserData for Linker {
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("link", |_: &Lua, this, (objects, output_filename, args): (Vec<Object>, String, Vec<String>)| {
+        methods.add_method("link", |_: &Lua, this, (objects, args, output_filename): (Vec<Object>, Vec<String>, String)| {
             this.rule
                 .build([output_filename])
                 .with(objects.into_iter().map(|obj| obj.path))
