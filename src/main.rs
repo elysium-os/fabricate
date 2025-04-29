@@ -73,6 +73,24 @@ struct FabContext {
     dependency_cache: Vec<String>,
 }
 
+struct FabLogStyle;
+
+impl CologStyle for FabLogStyle {
+    fn prefix_token(&self, level: &log::Level) -> String {
+        format!("{} >> ", self.level_color(level, self.level_token(level)))
+    }
+
+    fn level_token(&self, level: &log::Level) -> &str {
+        match *level {
+            log::Level::Error => "Error",
+            log::Level::Warn => "Warning",
+            log::Level::Info => "Info",
+            log::Level::Debug => "Debug",
+            log::Level::Trace => "Trace",
+        }
+    }
+}
+
 impl Display for FabError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -99,7 +117,7 @@ impl FabContext {
 }
 
 fn main() {
-    colog::default_builder().init(); //.format(colog::formatter(ChariotLogStyle)).init();
+    colog::default_builder().format(colog::formatter(FabLogStyle)).init();
 
     if let Err(err) = run_main() {
         eprintln!("{}", err);
