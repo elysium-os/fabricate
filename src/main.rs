@@ -8,6 +8,7 @@ use std::{
 };
 
 use clap::{Args, Parser, Subcommand};
+use colog::format::CologStyle;
 use compiler::Compiler;
 use dependency::Dependency;
 use executable::Executable;
@@ -185,6 +186,8 @@ fn run_main() -> Result<(), FabError> {
             fab_table.set("create_compiler", lua.create_function(Compiler::create)?)?;
             fab_table.set("create_linker", lua.create_function(Linker::create)?)?;
             fab_table.set("dependency", lua.create_function(Dependency::create)?)?;
+            fab_table.set("source", lua.create_function(Source::create)?)?;
+            fab_table.set("include_directory", lua.create_function(IncludeDirectory::create)?)?;
 
             // Globals
             lua.globals().set("fab", fab_table)?;
@@ -210,9 +213,6 @@ fn run_main() -> Result<(), FabError> {
                     Ok(())
                 })?,
             )?;
-
-            lua.globals().set("source", lua.create_function(Source::create)?)?;
-            lua.globals().set("include_directory", lua.create_function(IncludeDirectory::create)?)?;
 
             // Setup fab context
             let mut options: HashMap<String, String> = HashMap::new();

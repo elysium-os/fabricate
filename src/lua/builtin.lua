@@ -4,10 +4,10 @@ function sources(...)
     local collect = {}
     for _, v in ipairs({ ... }) do
         if type(v) == "string" then
-            table.insert(collect, source(v))
+            table.insert(collect, fab.source(v))
         elseif type(v) == "table" then
             for _, v in ipairs(v) do
-                table.insert(collect, source(v))
+                table.insert(collect, fab.source(v))
             end
         end
     end
@@ -18,10 +18,10 @@ function includes(...)
     local collect = {}
     for _, v in ipairs({ ... }) do
         if type(v) == "string" then
-            table.insert(collect, include_directory(v))
+            table.insert(collect, fab.include_directory(v))
         elseif type(v) == "table" then
             for _, v in ipairs(v) do
-                table.insert(collect, include_directory(v))
+                table.insert(collect, fab.include_directory(v))
             end
         end
     end

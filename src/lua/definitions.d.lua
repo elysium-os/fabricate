@@ -6,14 +6,6 @@ function panic(message) end
 ---@param message string
 function warn(message) end
 
----@param path string
----@return Source
-function source(path) end
-
----@param path string
----@return IncludeDirectory
-function include_directory(path) end
-
 ---@param base string
 ---@vararg string
 ---@return string
@@ -51,6 +43,14 @@ function fab.create_linker(table) end
 ---@param revision string
 ---@return Dependency
 function fab.dependency(name, url, revision) end
+
+---@param path string
+---@return Source
+function fab.source(path) end
+
+---@param path string
+---@return IncludeDirectory
+function fab.include_directory(path) end
 
 ---@class Compiler
 Compiler = {}
