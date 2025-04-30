@@ -33,6 +33,9 @@ mod source;
 #[derive(Parser)]
 #[command(version, next_line_help = true)]
 struct FabOptions {
+    #[arg(long, default = "fab.lua", help = "config file path")]
+    config: String,
+
     #[command(subcommand)]
     command: MainCommand,
 }
@@ -130,8 +133,7 @@ fn run_main() -> Result<(), FabError> {
 
     match options.command {
         MainCommand::Configure(configure_options) => {
-            let config_name = "fab.lua";
-            let config_path = Path::new(&config_name).canonicalize()?;
+            let config_path = Path::new(&options.config).canonicalize()?;
 
             create_dir_all(&configure_options.builddir)?;
             let build_cache = Path::new(&configure_options.builddir).canonicalize()?;
@@ -241,7 +243,7 @@ fn run_main() -> Result<(), FabError> {
             // Execute build script
             lua.set_app_data(fab_context);
             lua.load(BUILTIN).set_name("=builtin").exec()?;
-            lua.load(read(config_path)?).set_name(format!("@{}", config_name)).exec()?;
+            lua.load(read(config_path)?).set_name(format!("@{}", &options.config)).exec()?;
 
             // Write ninja build
             let fab_context = lua.app_data_mut::<FabContext>().unwrap();
