@@ -33,7 +33,7 @@ mod source;
 #[derive(Parser)]
 #[command(version, next_line_help = true)]
 struct FabOptions {
-    #[arg(long, default = "fab.lua", help = "config file path")]
+    #[arg(long, help = "config file path", default_value = "fab.lua")]
     config: String,
 
     #[command(subcommand)]
@@ -105,7 +105,8 @@ impl Display for FabError {
     }
 }
 
-const BUILTIN: &'static str = include_str!("lua/builtin.lua");
+const BUILTINS_FAB: &'static str = include_str!("lua/builtins.fab.lua");
+const BUILTINS_GENERAL: &'static str = include_str!("lua/builtins.general.lua");
 
 fn keyvalue_opt_validate(s: &str) -> Result<(String, String), String> {
     match s.split_once("=") {
@@ -129,11 +130,11 @@ fn main() {
 }
 
 fn run_main() -> Result<(), FabError> {
-    let options = FabOptions::parse();
+    let cli_options = FabOptions::parse();
 
-    match options.command {
+    match cli_options.command {
         MainCommand::Configure(configure_options) => {
-            let config_path = Path::new(&options.config).canonicalize()?;
+            let config_path = Path::new(&cli_options.config).canonicalize()?;
 
             create_dir_all(&configure_options.builddir)?;
             let build_cache = Path::new(&configure_options.builddir).canonicalize()?;
@@ -242,8 +243,9 @@ fn run_main() -> Result<(), FabError> {
 
             // Execute build script
             lua.set_app_data(fab_context);
-            lua.load(BUILTIN).set_name("=builtin").exec()?;
-            lua.load(read(config_path)?).set_name(format!("@{}", &options.config)).exec()?;
+            lua.load(BUILTINS_FAB).set_name("=builtins.fab").exec()?;
+            lua.load(BUILTINS_GENERAL).set_name("=builtins.general").exec()?;
+            lua.load(read(config_path)?).set_name(format!("@{}", &cli_options.config)).exec()?;
 
             // Write ninja build
             let fab_context = lua.app_data_mut::<FabContext>().unwrap();
