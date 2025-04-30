@@ -28,7 +28,7 @@ function includes(...)
     return collect
 end
 
-local c_compilers = { "clang", "gcc", "clang*", "gcc*", "msvc", "msvc*" }
+local c_compilers = { "clang", "gcc", "*clang", "*gcc", "msvc" }
 local c_compiler = nil
 while c_compiler == nil and #c_compilers ~= 0 do
     c_compiler = fab.find_executable(table.remove(c_compilers, 1))
@@ -53,7 +53,6 @@ if c_compiler ~= nil then
 else
     CC = nil
     CC_LD = nil
-    warn("Failed to locate a C compiler")
 end
 
 -- General Helpers
