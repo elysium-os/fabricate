@@ -8,7 +8,7 @@
         let pkgs = import nixpkgs { inherit system; }; in {
             devShells.default = pkgs.mkShell {
                 shellHook = "export NIX_SHELL_NAME='fab'";
-                buildInputs = with pkgs; [ pkgconf openssl ];
+                buildInputs = with pkgs; [ rustup pkgconf openssl ];
                 nativeBuildInputs = with pkgs; [ ninja ];
             };
 
