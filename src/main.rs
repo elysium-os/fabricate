@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
     env,
-    fmt::Display,
     fs::{create_dir_all, read, write},
-    io::{self},
     path::{Path, PathBuf},
+    process::exit,
 };
 
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use colog::format::CologStyle;
 use compiler::Compiler;
@@ -16,11 +16,10 @@ use glob::glob;
 use include_dir::IncludeDirectory;
 use json::JsonValue;
 use linker::Linker;
-use log::warn;
-use mlua::{IntoLua, Lua, Value, Variadic};
+use log::{error, warn};
+use mlua::{ExternalResult, IntoLua, Lua, Value, Variadic};
 use ninja_writer::Ninja;
 use source::Source;
-use thiserror::Error;
 
 mod compiler;
 mod dependency;
@@ -58,14 +57,7 @@ struct ConfigureOptions {
     builddir: String,
 }
 
-#[derive(Error, Debug)]
-enum FabError {
-    Io(#[from] io::Error),
-    Lua(#[from] mlua::Error),
-    Toml(#[from] toml::ser::Error),
-}
-
-struct FabContext {
+struct FabLuaContext {
     options: HashMap<String, String>,
     project_root: PathBuf,
     build_cache: PathBuf,
@@ -95,16 +87,6 @@ impl CologStyle for FabLogStyle {
     }
 }
 
-impl Display for FabError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FabError::Io(err) => write!(f, "{}", err),
-            FabError::Toml(err) => write!(f, "{}", err),
-            FabError::Lua(err) => write!(f, "{}", err),
-        }
-    }
-}
-
 const BUILTINS_FAB: &'static str = include_str!("lua/builtins.fab.lua");
 const BUILTINS_GENERAL: &'static str = include_str!("lua/builtins.general.lua");
 
@@ -115,7 +97,7 @@ fn keyvalue_opt_validate(s: &str) -> Result<(String, String), String> {
     }
 }
 
-impl FabContext {
+impl FabLuaContext {
     fn path_dependencies(&self) -> PathBuf {
         self.build_cache.join("dependencies")
     }
@@ -125,11 +107,19 @@ fn main() {
     colog::default_builder().format(colog::formatter(FabLogStyle)).init();
 
     if let Err(err) = run_main() {
-        eprintln!("{}", err);
+        error!("{}", err);
+        if err.chain().len() > 1 {
+            error!("Caused by:");
+            for (i, sub_error) in err.chain().skip(1).enumerate() {
+                error!("  {}: {}", i, sub_error)
+            }
+        }
+
+        exit(1);
     }
 }
 
-fn run_main() -> Result<(), FabError> {
+fn run_main() -> Result<()> {
     let cli_options = FabOptions::parse();
 
     match cli_options.command {
@@ -140,82 +130,12 @@ fn run_main() -> Result<(), FabError> {
             let build_cache = Path::new(&configure_options.builddir).canonicalize()?;
 
             let project_root = match config_path.parent() {
-                None => panic!("Failed to resolve config directory"),
+                None => bail!("Failed to resolve config directory"),
                 Some(config_dir) => {
                     env::set_current_dir(config_dir)?;
                     config_dir.to_owned()
                 }
             };
-
-            let lua = Lua::new();
-
-            // Setup fab table
-            let fab_table = lua.create_table()?;
-
-            fab_table.set("find_executable", lua.create_function(Executable::find)?)?;
-
-            fab_table.set(
-                "glob",
-                lua.create_function(|_: &Lua, pattern: String| {
-                    let mut paths: Vec<PathBuf> = Vec::new();
-                    for entry in glob(&pattern).unwrap_or_else(|err| panic!("Glob pattern `{}` failed: {}", pattern, err)) {
-                        match entry {
-                            Ok(path) => paths.push(path),
-                            Err(_) => continue,
-                        }
-                    }
-                    Ok(paths)
-                })?,
-            )?;
-
-            fab_table.set(
-                "option",
-                lua.create_function(|lua: &Lua, (name, default): (String, Value)| {
-                    let fab_context = lua.app_data_ref::<FabContext>().unwrap();
-
-                    if !fab_context.options.contains_key(&name) {
-                        return Ok(default);
-                    }
-
-                    Ok(fab_context.options[&name].clone().into_lua(lua)?)
-                })?,
-            )?;
-
-            fab_table.set(
-                "project_root",
-                lua.create_function(|lua: &Lua, _: ()| Ok(lua.app_data_ref::<FabContext>().unwrap().project_root.clone()))?,
-            )?;
-
-            fab_table.set("create_compiler", lua.create_function(Compiler::create)?)?;
-            fab_table.set("create_linker", lua.create_function(Linker::create)?)?;
-            fab_table.set("dependency", lua.create_function(Dependency::create)?)?;
-            fab_table.set("source", lua.create_function(Source::create)?)?;
-            fab_table.set("include_directory", lua.create_function(IncludeDirectory::create)?)?;
-
-            // Globals
-            lua.globals().set("fab", fab_table)?;
-
-            lua.globals().set(
-                "path",
-                lua.create_function(|_: &Lua, (base, parts): (PathBuf, Variadic<PathBuf>)| {
-                    let mut path = base;
-                    for part in parts {
-                        path = path.join(part);
-                    }
-                    Ok(path)
-                })?,
-            )?;
-
-            lua.globals()
-                .set("panic", lua.create_function(|_: &Lua, message: String| -> mlua::Result<()> { panic!("{}", message) })?)?;
-
-            lua.globals().set(
-                "warn",
-                lua.create_function(|_: &Lua, message: String| {
-                    warn!("{}", message);
-                    Ok(())
-                })?,
-            )?;
 
             // Setup fab context
             let mut options: HashMap<String, String> = HashMap::new();
@@ -223,7 +143,7 @@ fn run_main() -> Result<(), FabError> {
                 options.insert(key, value);
             }
 
-            let fab_context = FabContext {
+            let lua_context = FabLuaContext {
                 options,
                 project_root,
                 build_cache: build_cache.clone(),
@@ -237,21 +157,25 @@ fn run_main() -> Result<(), FabError> {
             create_dir_all(&build_cache)?;
             create_dir_all(&build_cache.join("objects"))?;
             create_dir_all(&build_cache.join("depfiles"))?;
-            create_dir_all(fab_context.path_dependencies())?;
+            create_dir_all(lua_context.path_dependencies())?;
 
             write(build_cache.join(".gitignore"), "# Generated by Fab.\n*")?;
 
             // Execute build script
-            lua.set_app_data(fab_context);
-            lua.load(BUILTINS_FAB).set_name("=builtins.fab").exec()?;
-            lua.load(BUILTINS_GENERAL).set_name("=builtins.general").exec()?;
-            lua.load(read(config_path)?).set_name(format!("@{}", &cli_options.config)).exec()?;
+            let lua = match setup_lua(lua_context) {
+                Ok(lua) => lua,
+                Err(err) => return Err(anyhow!(err.to_string()).context("Failed to setup lua")),
+            };
+
+            if let Err(err) = lua.load(read(config_path)?).set_name(format!("@{}", &cli_options.config)).exec() {
+                return Err(anyhow!(err.to_string()).context("Failed to run config"));
+            }
 
             // Write ninja build
-            let fab_context = lua.app_data_mut::<FabContext>().unwrap();
-            let ninja_config = fab_context.ninja.to_string();
+            let lua_context = lua.app_data_mut::<FabLuaContext>().unwrap();
+            let ninja_config = lua_context.ninja.to_string();
             write(build_cache.join("build.ninja"), ninja_config)?;
-            write(build_cache.join("compile_commands.json"), JsonValue::Array(fab_context.compile_commands.clone()).pretty(4))?;
+            write(build_cache.join("compile_commands.json"), JsonValue::Array(lua_context.compile_commands.clone()).pretty(4))?;
 
             let mut config_table = toml::Table::new();
             config_table.insert("prefix".to_string(), toml::Value::String(configure_options.prefix.clone()));
@@ -261,4 +185,82 @@ fn run_main() -> Result<(), FabError> {
     }
 
     Ok(())
+}
+
+fn setup_lua(lua_context: FabLuaContext) -> mlua::Result<Lua> {
+    let lua = Lua::new();
+
+    // Setup fab table
+    let fab_table = lua.create_table()?;
+
+    fab_table.set("find_executable", lua.create_function(Executable::find)?)?;
+
+    fab_table.set(
+        "glob",
+        lua.create_function(|_: &Lua, pattern: String| {
+            let mut paths: Vec<PathBuf> = Vec::new();
+            for entry in glob(&pattern).with_context(|| format!("Glob pattern `{}` failed", pattern)).into_lua_err()? {
+                match entry {
+                    Ok(path) => paths.push(path),
+                    Err(_) => continue,
+                }
+            }
+            Ok(paths)
+        })?,
+    )?;
+
+    fab_table.set(
+        "option",
+        lua.create_function(|lua: &Lua, (name, default): (String, Value)| {
+            let fab_context = lua.app_data_ref::<FabLuaContext>().unwrap();
+
+            if !fab_context.options.contains_key(&name) {
+                return Ok(default);
+            }
+
+            Ok(fab_context.options[&name].clone().into_lua(lua)?)
+        })?,
+    )?;
+
+    fab_table.set(
+        "project_root",
+        lua.create_function(|lua: &Lua, _: ()| Ok(lua.app_data_ref::<FabLuaContext>().unwrap().project_root.clone()))?,
+    )?;
+
+    fab_table.set("create_compiler", lua.create_function(Compiler::create)?)?;
+    fab_table.set("create_linker", lua.create_function(Linker::create)?)?;
+    fab_table.set("dependency", lua.create_function(Dependency::create)?)?;
+    fab_table.set("source", lua.create_function(Source::create)?)?;
+    fab_table.set("include_directory", lua.create_function(IncludeDirectory::create)?)?;
+
+    // Globals
+    lua.globals().set("fab", fab_table)?;
+
+    lua.globals().set(
+        "path",
+        lua.create_function(|_: &Lua, (base, parts): (PathBuf, Variadic<PathBuf>)| {
+            let mut path = base;
+            for part in parts {
+                path = path.join(part);
+            }
+            Ok(path)
+        })?,
+    )?;
+
+    lua.globals()
+        .set("panic", lua.create_function(|_: &Lua, message: String| -> mlua::Result<()> { panic!("{}", message) })?)?;
+
+    lua.globals().set(
+        "warn",
+        lua.create_function(|_: &Lua, message: String| {
+            warn!("{}", message);
+            Ok(())
+        })?,
+    )?;
+
+    lua.set_app_data(lua_context);
+    lua.load(BUILTINS_FAB).set_name("=builtins.fab").exec()?;
+    lua.load(BUILTINS_GENERAL).set_name("=builtins.general").exec()?;
+
+    Ok(lua)
 }

@@ -1,8 +1,12 @@
-use std::{fs::exists, path::PathBuf};
+use std::{
+    fs::exists,
+    path::{Path, PathBuf},
+};
 
-use mlua::{FromLua, Lua, Result, UserData, Value};
+use anyhow::anyhow;
+use mlua::{ExternalError, FromLua, Lua, Result, UserData, Value};
 
-use crate::FabContext;
+use crate::FabLuaContext;
 
 #[derive(Clone, Debug)]
 pub struct IncludeDirectory {
@@ -21,31 +25,31 @@ impl FromLua for IncludeDirectory {
     fn from_lua(value: Value, _: &Lua) -> Result<Self> {
         match value {
             Value::UserData(data) => Ok((*data.borrow::<IncludeDirectory>()?).clone()),
-            _ => panic!("value is not an include directory"),
+            _ => return Err(anyhow!("`{:?}` is not an IncludeDirectory", value).into_lua_err()),
         }
     }
 }
 
 impl IncludeDirectory {
-    pub fn create(lua: &Lua, original_path: PathBuf) -> Result<IncludeDirectory> {
-        let fab_context = lua.app_data_ref::<FabContext>().unwrap();
+    pub fn create(lua: &Lua, original_path: String) -> Result<IncludeDirectory> {
+        let fab_context = lua.app_data_ref::<FabLuaContext>().unwrap();
 
         if !exists(&original_path)? {
-            panic!("Include directory `{}` does not exist", original_path.to_str().unwrap());
+            return Err(anyhow!("Include directory `{}` does not exist", original_path).into_lua_err());
         }
 
-        let path = original_path.canonicalize()?.to_path_buf();
+        let path = Path::new(&original_path).canonicalize()?.to_path_buf();
         if !path.is_dir() {
-            panic!("Include directory `{}` is not a directory", original_path.to_str().unwrap());
+            return Err(anyhow!("Include directory `{}` is not a directory", original_path).into_lua_err());
         }
 
         let filename = match path.file_name() {
-            None => panic!("Include directory `{}` has an invalid filename", original_path.to_str().unwrap()),
+            None => return Err(anyhow!("Include directory `{}` has an invalid filename", original_path).into_lua_err()),
             Some(filename) => filename.to_owned().to_str().unwrap().to_string(),
         };
 
         if !path.starts_with(&fab_context.project_root) {
-            panic!("Include directory `{}` is outside of the project root", original_path.to_str().unwrap());
+            return Err(anyhow!("Include directory `{}` is outside of the project root", original_path).into_lua_err());
         }
 
         Ok(IncludeDirectory {

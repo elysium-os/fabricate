@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use mlua::{FromLua, Lua, Result, UserData, Value};
+use anyhow::{anyhow, Context};
+use mlua::{ExternalError, ExternalResult, FromLua, Lua, Result, UserData, Value};
 use regex::Regex;
 use which::{which, which_re};
 
@@ -20,7 +21,7 @@ impl FromLua for Executable {
     fn from_lua(value: Value, _: &Lua) -> Result<Self> {
         match value {
             Value::UserData(data) => Ok((*data.borrow::<Executable>()?).clone()),
-            _ => panic!("value is not an executable"),
+            _ => return Err(anyhow!("`{:?}` is not an Executable", value).into_lua_err()),
         }
     }
 }
@@ -32,7 +33,7 @@ impl Executable {
                 Ok(path) => Some(path),
                 Err(_) => None,
             },
-            search => match &mut which_re(Regex::new(search).unwrap_or_else(|err| panic!("Invalid search_bin regex `{}`: {}", search, err))) {
+            search => match &mut which_re(Regex::new(search).with_context(|| format!("Invalid search_bin regex `{}`", search)).into_lua_err()?) {
                 Ok(paths) => paths.next(),
                 Err(_) => None,
             },
@@ -41,7 +42,7 @@ impl Executable {
         Ok(match bin_path {
             Some(path) => {
                 let filename = match path.file_name() {
-                    None => panic!("Executable `{}` has an invalid filename", path.to_str().unwrap()),
+                    None => return Err(anyhow!("Executable `{}` has an invalid filename", path.to_str().unwrap()).into_lua_err()),
                     Some(filename) => filename.to_owned().to_str().unwrap().to_string(),
                 };
                 Some(Executable { path, filename })

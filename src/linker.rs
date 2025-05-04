@@ -1,7 +1,8 @@
-use mlua::{Lua, Result, Table, UserData};
+use anyhow::anyhow;
+use mlua::{ExternalError, Lua, Result, Table, UserData};
 use ninja_writer::{escape, BuildVariables, RuleRef, RuleVariables, Variables};
 
-use crate::{executable::Executable, object::Object, FabContext};
+use crate::{executable::Executable, object::Object, FabLuaContext};
 
 #[derive(Clone, Debug)]
 pub struct Linker {
@@ -19,7 +20,7 @@ impl UserData for Linker {
             this.rule
                 .build([output_filename])
                 .with(objects.into_iter().map(|obj| obj.path))
-                .variable("ARGUMENTS", args.join(" "));
+                .variable("arguments", args.join(" "));
 
             Ok(())
         });
@@ -28,7 +29,7 @@ impl UserData for Linker {
 
 impl Linker {
     pub fn create(lua: &Lua, table: Table) -> Result<Linker> {
-        let mut fab_context = lua.app_data_mut::<FabContext>().unwrap();
+        let mut fab_context = lua.app_data_mut::<FabLuaContext>().unwrap();
 
         let name: String = escape(table.get::<String>("name")?.as_str()).to_string();
         let executable: Executable = table.get("executable")?;
@@ -40,7 +41,7 @@ impl Linker {
 
         let rule_name = name.clone() + "_link";
         if fab_context.rule_cache.contains(&name) {
-            panic!("Rule `{}` defined more than once", rule_name);
+            return Err(anyhow!("Rule `{}` defined more than once", rule_name).into_lua_err());
         }
         fab_context.rule_cache.push(name.clone());
 
@@ -48,11 +49,11 @@ impl Linker {
         for arg in command.split_whitespace() {
             link_command.push(match arg {
                 "@EXEC@" => executable.path.to_str().unwrap(),
-                "@FLAGS@" => "$ARGUMENTS",
+                "@FLAGS@" => "$arguments",
                 "@IN@" => "$in",
                 "@OUT@" => "$out",
                 arg if arg.starts_with("@") && arg.ends_with("@") => {
-                    panic!("Unknown embed `{}` in compiler linker `{}`", arg, name);
+                    return Err(anyhow!("Unknown embed `{}` in compiler linker `{}`", arg, name).into_lua_err());
                 }
                 _ => arg,
             });

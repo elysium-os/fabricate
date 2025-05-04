@@ -1,11 +1,11 @@
-use core::panic;
 use std::ffi::OsString;
 
+use anyhow::anyhow;
 use json::object;
-use mlua::{Function, Lua, Result, Table, UserData};
+use mlua::{ExternalError, Function, Lua, Result, Table, UserData};
 use ninja_writer::{escape, escape_path, BuildVariables, RuleRef, RuleVariables, Variables};
 
-use crate::{executable::Executable, include_dir::IncludeDirectory, object::Object, source::Source, FabContext};
+use crate::{executable::Executable, include_dir::IncludeDirectory, object::Object, source::Source, FabLuaContext};
 
 #[derive(Clone, Debug)]
 pub struct Compiler {
@@ -24,16 +24,19 @@ impl UserData for Compiler {
         methods.add_method(
             "build",
             |lua: &Lua, this, (sources, mut args, includes): (Vec<Source>, Vec<String>, Option<Vec<IncludeDirectory>>)| {
-                let mut fab_context = lua.app_data_mut::<FabContext>().unwrap();
+                let mut fab_context = lua.app_data_mut::<FabLuaContext>().unwrap();
 
                 args = args.into_iter().map(|arg| escape(arg.as_str()).to_string()).collect();
                 if let Some(includes) = &includes {
                     if let Some(format_include_dir) = &this.format_include_dir {
                         for include in includes {
-                            args.insert(0, escape_path(format_include_dir.call::<String>(fab_context.project_root.join(include.path.clone()))?.as_str()).to_string());
+                            args.insert(
+                                0,
+                                escape_path(format_include_dir.call::<String>(fab_context.project_root.join(include.path.clone()))?.as_str()).to_string(),
+                            );
                         }
                     } else {
-                        panic!("Compiler `{}` does not support includes", this.name)
+                        return Err(anyhow!("Compiler `{}` does not support includes", this.name).into_lua_err());
                     }
                 }
 
@@ -93,7 +96,7 @@ impl UserData for Compiler {
 
 impl Compiler {
     pub fn create(lua: &Lua, table: Table) -> Result<Compiler> {
-        let mut fab_context = lua.app_data_mut::<FabContext>().unwrap();
+        let mut fab_context = lua.app_data_mut::<FabLuaContext>().unwrap();
 
         let name: String = escape(table.get::<String>("name")?.as_str()).to_string();
         let executable: Executable = table.get("executable")?;
@@ -113,7 +116,7 @@ impl Compiler {
 
         let rule_name = name.clone() + "_build";
         if fab_context.rule_cache.contains(&rule_name) {
-            panic!("Rule `{}` defined more than once", rule_name);
+            return Err(anyhow!("Rule `{}` defined more than once", rule_name).into_lua_err());
         }
         fab_context.rule_cache.push(rule_name.clone());
 
@@ -126,7 +129,7 @@ impl Compiler {
                 "@IN@" => "$in",
                 "@OUT@" => "$out",
                 arg if arg.starts_with("@") && arg.ends_with("@") => {
-                    panic!("Unknown embed `{}` in compiler `{}`", arg, name);
+                    return Err(anyhow!("Unknown embed `{}` in compiler `{}`", arg, name).into_lua_err());
                 }
                 _ => arg,
             });
