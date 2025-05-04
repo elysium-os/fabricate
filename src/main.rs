@@ -17,7 +17,7 @@ use include_dir::IncludeDirectory;
 use json::JsonValue;
 use linker::Linker;
 use log::{error, warn};
-use mlua::{ExternalResult, IntoLua, Lua, Value, Variadic};
+use mlua::{ExternalError, ExternalResult, IntoLua, Lua, Value, Variadic};
 use ninja_writer::Ninja;
 use source::Source;
 
@@ -233,6 +233,27 @@ fn setup_lua(lua_context: FabLuaContext) -> mlua::Result<Lua> {
     fab_table.set("source", lua.create_function(Source::create)?)?;
     fab_table.set("include_directory", lua.create_function(IncludeDirectory::create)?)?;
 
+    fab_table.set(
+        "fatal",
+        lua.create_function(|_: &Lua, message: String| -> mlua::Result<()> { Err(anyhow!("Fatal: {}", message).into_lua_err()) })?,
+    )?;
+
+    fab_table.set(
+        "error",
+        lua.create_function(|_: &Lua, message: String| -> mlua::Result<()> {
+            error!("{}", message);
+            Ok(())
+        })?,
+    )?;
+
+    fab_table.set(
+        "warn",
+        lua.create_function(|_: &Lua, message: String| {
+            warn!("{}", message);
+            Ok(())
+        })?,
+    )?;
+
     // Globals
     lua.globals().set("fab", fab_table)?;
 
@@ -244,17 +265,6 @@ fn setup_lua(lua_context: FabLuaContext) -> mlua::Result<Lua> {
                 path = path.join(part);
             }
             Ok(path)
-        })?,
-    )?;
-
-    lua.globals()
-        .set("panic", lua.create_function(|_: &Lua, message: String| -> mlua::Result<()> { panic!("{}", message) })?)?;
-
-    lua.globals().set(
-        "warn",
-        lua.create_function(|_: &Lua, message: String| {
-            warn!("{}", message);
-            Ok(())
         })?,
     )?;
 
