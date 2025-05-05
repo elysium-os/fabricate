@@ -61,7 +61,7 @@ impl UserData for Compiler {
 
                     let mut build = this.build_rule.build([&object_path]).with([&fab_context.project_root.join(&source.path)]);
                     build = build.variable("depfile", depfile_path);
-                    build.variable("ARGUMENTS", args.join(" "));
+                    build.variable("arguments", args.join(" "));
 
                     objects.push(Object { path: object_path.clone() });
 
@@ -125,7 +125,7 @@ impl Compiler {
             build_command.push(match arg {
                 "@EXEC@" => executable.path.to_str().unwrap(),
                 "@DEPFILE@" => "$depfile",
-                "@FLAGS@" => "$ARGUMENTS",
+                "@FLAGS@" => "$arguments",
                 "@IN@" => "$in",
                 "@OUT@" => "$out",
                 arg if arg.starts_with("@") && arg.ends_with("@") => {
