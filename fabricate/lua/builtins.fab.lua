@@ -75,7 +75,7 @@ function builtins.get_linker(linker, path)
     --- @param name string Name of the output
     --- @param objects (Source | Output)[]
     --- @param args string[]
-    --- @return Output[]
+    --- @return Output
     function Linker:link(name, objects, args)
         return self.rule:build(name, objects, { args = table.join(args or {}, " ") })
     end
