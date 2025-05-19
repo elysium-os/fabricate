@@ -139,8 +139,12 @@ func main() {
 		}
 
 	case "install":
+		if !cache.loaded {
+		    panic("cache not found, cannot install")
+		}
+		
 		for dest, src := range cache.Install {
-			dest = filepath.Join(prefix, dest)
+			dest = filepath.Join(cache.Prefix, dest)
 			src = filepath.Join(buildDir, src)
 
 			if destdir != "" {
