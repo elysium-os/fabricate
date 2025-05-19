@@ -20,6 +20,7 @@ type Dependency struct {
 }
 
 type FabCache struct {
+	loaded       bool
 	Prefix       string            `json:"prefix"`
 	Dependencies []Dependency      `json:"dependencies"`
 	Options      map[string]string `json:"options"`
@@ -93,6 +94,7 @@ func main() {
 
 	// Load cache
 	cache := FabCache{
+		loaded:       false,
 		Dependencies: make([]Dependency, 0),
 		Install:      make(map[string]string),
 	}
@@ -105,6 +107,7 @@ func main() {
 		if err := json.Unmarshal(cacheData, &cache); err != nil {
 			panic(err)
 		}
+		cache.loaded = true
 	}
 
 	// Execute

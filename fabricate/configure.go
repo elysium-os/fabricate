@@ -129,6 +129,17 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 		return err
 	}
 
+	// Cleanup builddir
+	if cache.loaded {
+		buildCmd := exec.Command(ninjaPath, "-C", buildDir, "-t", "cleandead")
+		buildCmd.Stdout = os.Stdout
+		buildCmd.Stderr = os.Stderr
+
+		if err := buildCmd.Run(); err != nil {
+			panic(err)
+		}
+	}
+
 	// Setup Lua
 	l := lua.NewState()
 	lua.Require(l, "_G", lua.BaseOpen, true)
