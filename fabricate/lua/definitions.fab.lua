@@ -24,6 +24,13 @@ function fab.path_abs(path) end
 --- @return string relative_path
 function fab.path_rel(path) end
 
+--- Split a string by seprator. The n parameter defines how many substrings to return, negative values mean all of them.
+--- @param str string
+--- @param sep string
+--- @param n number?
+--- @return string[]
+function fab.string_split(str, sep, n) end
+
 --- Get an absolute path to the project root.
 --- @return string path
 function fab.project_root() end

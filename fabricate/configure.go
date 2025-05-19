@@ -484,6 +484,31 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 			},
 		},
 		{
+			Name: "string_split",
+			Function: func(l *lua.State) int {
+				str := lua.CheckString(l, 1)
+				sep := lua.CheckString(l, 2)
+				n, ok := l.ToInteger(3)
+				if !ok {
+					n = -1
+				}
+
+				l.NewTable()
+
+				subs := strings.SplitN(str, sep, n)
+				if subs == nil {
+					return 1
+				}
+
+				for i, s := range subs {
+					l.PushNumber(float64(i + 1))
+					l.PushString(s)
+					l.SetTable(-3)
+				}
+				return 1
+			},
+		},
+		{
 			Name: "path_rel",
 			Function: func(l *lua.State) int {
 				path, err := filepath.Abs(lua.CheckString(l, 1))

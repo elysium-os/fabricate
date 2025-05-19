@@ -68,6 +68,21 @@ returns: string
 Make a path relative to the build directory.
 Uses the `golang <https://go.dev/>`_ `filepath.Rel <https://pkg.go.dev/path/filepath#Rel>`_ function internally.
 
+.. _config-fab-string_split:
+
+fab.string_split(str, sep, n)
+=============================
+str: string
+    String to split by separator.
+sep: string
+    Separator to use.
+n: number?
+    Number of substrings to return.
+returns: string[]
+    Array of substrings.
+
+Split a string by seprator. The n parameter defines how many substrings to return, negative values mean all of them.
+
 .. _config-fab-project_root:
 
 fab.project_root()
