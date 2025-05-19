@@ -42,7 +42,7 @@ function builtins.get_linker(linker, path)
 
     local name = nil
     local exec = nil
-    if type(linker) == "string" and linkers:contains(linker) then
+    if type(linker) == "string" and table.contains(linkers, linker) then
         linkers = { linker }
 
         if path ~= nil then
@@ -99,7 +99,7 @@ function builtins.c.get_compiler(compiler, path)
 
     local name = nil
     local exec = nil
-    if type(compiler) == "string" and compilers:contains(compiler) then
+    if type(compiler) == "string" and table.contains(compilers, compiler) then
         compilers = { compiler }
 
         if path ~= nil then
