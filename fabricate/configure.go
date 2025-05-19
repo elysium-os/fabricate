@@ -362,7 +362,12 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 							lua.ArgumentError(l, 2, "Install path already used")
 						}
 
-						configuration.installs[dest] = output.path
+						relativeOutput, err := filepath.Rel(buildDir, output.path)
+						if err != nil {
+							lua.Errorf(l, fmt.Sprintf("could not make relative path: %s", err))
+						}
+
+						configuration.installs[dest] = relativeOutput
 						return 0
 					})
 				default:
