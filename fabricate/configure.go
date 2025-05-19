@@ -675,12 +675,17 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						parts = strings.Fields(str)
 					}
 
+					escapedParts := make([]string, 0)
+					for _, part := range parts {
+						escapedParts = append(escapedParts, ninjaEscape(part))
+					}
+
 					regex, err := regexp.Compile("@.+?@")
 					if err != nil {
 						panic(err)
 					}
 
-					final := regex.ReplaceAllStringFunc(strings.Join(parts, " "), func(variable string) string {
+					final := regex.ReplaceAllStringFunc(strings.Join(escapedParts, " "), func(variable string) string {
 						variable = strings.ToLower(strings.Trim(variable, "@"))
 
 						if slices.Contains(RESERVED_VARIABLES, variable) || slices.Contains(BUILTIN_VARIABLES, variable) {
@@ -963,6 +968,13 @@ func checkIdentifier(l *lua.State, argCount int, str string) string {
 	return str
 }
 
+func ninjaEscape(str string) string {
+	str = strings.ReplaceAll(str, "$", "$$")
+	str = strings.ReplaceAll(str, " ", "$ ")
+	str = strings.ReplaceAll(str, "\n", "$\n")
+	return str
+}
+
 func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 	var buffer bytes.Buffer
 
@@ -1020,20 +1032,22 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 				panic(fmt.Sprintf("could not resolve relative path to build directory: %s", err))
 			}
 
-			input = append(input, relativePath)
+			input = append(input, ninjaEscape(relativePath))
 		}
 
 		output, err := filepath.Rel(configuration.buildDir, build.output.path)
 		if err != nil {
 			panic(fmt.Sprintf("could not resolve relative path to build directory: %s", err))
 		}
+		output = ninjaEscape(output)
+		output = strings.ReplaceAll(output, ":", "$:")
 
 		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", output, build.rule.name, strings.Join(input, " "))); err != nil {
 			return nil, err
 		}
 
 		for k, v := range build.variables {
-			if _, err := buffer.WriteString(fmt.Sprintf("    %s = %s\n", k, v)); err != nil {
+			if _, err := buffer.WriteString(fmt.Sprintf("    %s = %s\n", k, ninjaEscape(v))); err != nil {
 				panic(err)
 			}
 		}
