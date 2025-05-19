@@ -312,7 +312,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						variables[fmt.Sprintf("fabvar_%s", key)] = value
 					}
 
-					output := Output{path: filepath.Join(configuration.buildDir, out)}
+					output := Output{path: filepath.Clean(filepath.Join(configuration.buildDir, out))}
 					configuration.outputs = append(configuration.outputs, output)
 
 					build := Build{rule: &rule, input: in, output: output, variables: variables}
@@ -623,16 +623,11 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					path = filepath.Join(configDir, path)
 				}
 
-				rootRelativePath, err := filepath.Rel(configuration.projectRoot, path)
-				if err != nil {
-					lua.ArgumentError(l, 1, fmt.Sprintf("could not resolve relative path to project root: %s", err))
+				if !pathIsWithin(l, path, configuration.projectRoot) && !pathIsWithin(l, path, dependencyDir) {
+					lua.ArgumentError(l, 1, "source is not within the project root or a dependency root")
 				}
 
-				if strings.HasPrefix(rootRelativePath, "..") || filepath.IsAbs(rootRelativePath) {
-					lua.ArgumentError(l, 1, "source is not within the project directory")
-				}
-
-				l.PushUserData(Source{path: filepath.Join(configuration.projectRoot, rootRelativePath)})
+				l.PushUserData(Source{path: filepath.Clean(path)})
 				lua.MetaTableNamed(l, "fab_source")
 				l.SetMetaTable(-2)
 
@@ -928,6 +923,15 @@ func doGlob(path string, glob string, ignores []string) ([]string, error) {
 
 func pathToFile(path string) string {
 	return strings.Join(strings.Split(strings.ReplaceAll(path, "_", "__"), string(os.PathSeparator)), "_")
+}
+
+func pathIsWithin(l *lua.State, path string, in string) bool {
+	relative, err := filepath.Rel(in, path)
+	if err != nil {
+		lua.Errorf(l, fmt.Sprintf("could not resolve relative path: %s", err))
+	}
+
+	return !strings.HasPrefix(relative, "..") && !filepath.IsAbs(relative)
 }
 
 func checkIdentifier(l *lua.State, argCount int, str string) string {
