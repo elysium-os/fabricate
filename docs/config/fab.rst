@@ -56,6 +56,18 @@ Uses the `golang <https://go.dev/>`_ `filepath.Abs <https://pkg.go.dev/path/file
     -- Example usage
     local abs_path = fab.path_abs("test.c")
 
+.. _config-fab-path_rel:
+
+fab.path_rel(path)
+==================
+path: string
+    Path to make relative.
+returns: string
+    Relative path.
+
+Make a path relative to the build directory.
+Uses the `golang <https://go.dev/>`_ `filepath.Rel <https://pkg.go.dev/path/filepath#Rel>`_ function internally.
+
 .. _config-fab-project_root:
 
 fab.project_root()
@@ -67,6 +79,13 @@ returns: string
 
     -- Example usage
     local something_file = fab.path_join(fab.project_root(), "support/something.txt")
+
+.. _config-fab-build_directory:
+
+fab.build_directory()
+==================
+returns: string
+    An absolute path to the build directory.
 
 .. _config-fab-find_executable:
 

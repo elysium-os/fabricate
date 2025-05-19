@@ -35,7 +35,7 @@ type Executable struct {
 }
 
 type Source struct {
-	path string // relative to project root
+	path string // absolute
 }
 
 type Rule struct {
@@ -198,8 +198,6 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 				l.PushString(filepath.Base(source.path))
 			case "path":
 				l.PushString(source.path)
-			case "abs_path":
-				l.PushString(filepath.Join(configuration.projectRoot, source.path))
 			default:
 				l.PushNil()
 			}
@@ -245,14 +243,14 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					for l.Next(-3) {
 						source := lua.TestUserData(l, -1, "fab_source")
 						if source != nil {
-							in = append(in, filepath.Join(configuration.projectRoot, source.(Source).path))
+							in = append(in, source.(Source).path)
 							l.Pop(1)
 							continue
 						}
 
 						output := lua.TestUserData(l, -1, "fab_output")
 						if output != nil {
-							in = append(in, filepath.Join(configuration.buildDir, output.(Output).path))
+							in = append(in, output.(Output).path)
 							l.Pop(1)
 							continue
 						}
@@ -303,7 +301,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						variables[fmt.Sprintf("fabvar_%s", key)] = value
 					}
 
-					output := Output{path: out}
+					output := Output{path: filepath.Join(configuration.buildDir, out)}
 					configuration.outputs = append(configuration.outputs, output)
 
 					build := Build{rule: &rule, input: in, output: output, variables: variables}
@@ -344,8 +342,6 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					l.PushString(filepath.Base(output.path))
 				case "path":
 					l.PushString(output.path)
-				case "abs_path":
-					l.PushString(filepath.Join(configuration.buildDir, output.path))
 				case "install":
 					l.PushGoFunction(func(l *lua.State) int {
 						output := lua.CheckUserData(l, 1, "fab_output").(Output)
@@ -472,9 +468,33 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 			},
 		},
 		{
+			Name: "path_rel",
+			Function: func(l *lua.State) int {
+				path, err := filepath.Abs(lua.CheckString(l, 1))
+				if err != nil {
+					lua.Errorf(l, fmt.Sprintf("Failed to make path absolute (in order to compute relative path): %s", err))
+				}
+
+				path, err = filepath.Rel(configuration.buildDir, path)
+				if err != nil {
+					lua.Errorf(l, fmt.Sprintf("Failed to make path relative: %s", err))
+				}
+
+				l.PushString(path)
+				return 1
+			},
+		},
+		{
 			Name: "project_root",
 			Function: func(l *lua.State) int {
 				l.PushString(configuration.projectRoot)
+				return 1
+			},
+		},
+		{
+			Name: "build_directory",
+			Function: func(l *lua.State) int {
+				l.PushString(configuration.buildDir)
 				return 1
 			},
 		},
@@ -512,7 +532,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					if output == nil {
 						lua.ArgumentError(l, 1, "expected a string or output")
 					}
-					path = filepath.Join(buildDir, output.(Output).path)
+					path = output.(Output).path
 				}
 
 				l.PushUserData(Executable{path})
@@ -524,11 +544,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 		{
 			Name: "option",
 			Function: func(l *lua.State) int {
-				name := lua.CheckString(l, 1)
-
-				if !isValidIdentifier(name) {
-					lua.ArgumentError(l, 1, fmt.Sprintf("option name \"%s\" is invalid. not alphabetic, '.', '_', or '-'. also cannot start with \"fab_\"", name))
-				}
+				name := checkIdentifier(l, 1, lua.CheckString(l, 1))
 
 				if slices.Contains(configuration.options, name) {
 					lua.ArgumentError(l, 1, "option defined more than once")
@@ -605,7 +621,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					lua.ArgumentError(l, 1, "source is not within the project directory")
 				}
 
-				l.PushUserData(Source{path: rootRelativePath})
+				l.PushUserData(Source{path: filepath.Join(configuration.projectRoot, rootRelativePath)})
 				lua.MetaTableNamed(l, "fab_source")
 				l.SetMetaTable(-2)
 
@@ -675,9 +691,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 				}
 				l.Pop(1)
 
-				if !isValidIdentifier(name) {
-					lua.ArgumentError(l, 1, fmt.Sprintf("rule name \"%s\" is invalid. not alphabetic, '.', '_', or '-'. also cannot start with \"fab_\"", name))
-				}
+				name = checkIdentifier(l, 1, name)
 
 				if slices.ContainsFunc(configuration.rules, func(rule Rule) bool { return rule.name == name }) {
 					lua.ArgumentError(l, 1, fmt.Sprintf("rule \"%s\" defined more than once", name))
@@ -745,11 +759,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 		{
 			Name: "dependency",
 			Function: func(l *lua.State) int {
-				name := lua.CheckString(l, 1)
-
-				if !isValidIdentifier(name) {
-					lua.ArgumentError(l, 1, fmt.Sprintf("dependency name \"%s\" is invalid. not alphabetic, '.', '_', or '-'. also cannot start with \"fab_\"", name))
-				}
+				name := checkIdentifier(l, 1, lua.CheckString(l, 1))
 
 				if slices.ContainsFunc(configuration.dependencies, func(d Dependency) bool { return d.Name == name }) {
 					lua.ArgumentError(l, 1, fmt.Sprintf("dependency \"%s\" already exists", name))
@@ -909,9 +919,9 @@ func pathToFile(path string) string {
 	return strings.Join(strings.Split(strings.ReplaceAll(path, "_", "__"), string(os.PathSeparator)), "_")
 }
 
-func isValidIdentifier(str string) bool {
+func checkIdentifier(l *lua.State, argCount int, str string) string {
 	if strings.HasPrefix(str, "fab_") {
-		return false
+		lua.ArgumentError(l, argCount, fmt.Sprintf("\"%s\" is an invalid identifier. cannot begin with \"fab_\"", str))
 	}
 
 	for _, ch := range str {
@@ -927,9 +937,10 @@ func isValidIdentifier(str string) bool {
 			continue
 		}
 
-		return false
+		lua.ArgumentError(l, argCount, fmt.Sprintf("\"%s\" is an invalid identifier. it is not alphabetic, '.', '_', or '-'", str))
 	}
-	return true
+
+	return str
 }
 
 func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
@@ -992,7 +1003,12 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 			input = append(input, relativePath)
 		}
 
-		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", build.output.path, build.rule.name, strings.Join(input, " "))); err != nil {
+		output, err := filepath.Rel(configuration.buildDir, build.output.path)
+		if err != nil {
+			panic(fmt.Sprintf("could not resolve relative path to build directory: %s", err))
+		}
+
+		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", output, build.rule.name, strings.Join(input, " "))); err != nil {
 			return nil, err
 		}
 

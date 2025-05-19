@@ -19,9 +19,18 @@ function fab.path_join(...) end
 --- @return string absolute_path
 function fab.path_abs(path) end
 
+--- Make a path relative to the build directory.
+--- @param path string
+--- @return string relative_path
+function fab.path_rel(path) end
+
 --- Get an absolute path to the project root.
 --- @return string path
 function fab.project_root() end
+
+--- Get an absolute path to the build directory.
+--- @return string path
+function fab.build_directory() end
 
 --- Find an executable on the system, behaves like the *which* tool on linux.
 --- @param name string

@@ -26,6 +26,13 @@ end
 
 builtins = { c = {}, nasm = {} }
 
+--- Get output path for a source file for generator type rules.
+--- @param source Source
+--- @return string
+function builtins.generator_output_path(source)
+    return fab.path_join("gen", fab.path_rel(source.path))
+end
+
 --- Get a linker object.
 --- @param linker ("ld.lld" | "ld")?
 --- @param path string?
@@ -150,8 +157,10 @@ function builtins.c.get_compiler(compiler, path)
 
         local outputs = {}
         for _, source in ipairs(sources) do
-            local output = self.compile_rule:build(source.path .. ".o", { source }, {
-                depfile = source.path .. ".d",
+            local relative_path = builtins.generator_output_path(source)
+
+            local output = self.compile_rule:build(relative_path .. ".o", { source }, {
+                depfile = relative_path .. ".d",
                 args = table.join(args, " ")
             })
 
@@ -192,7 +201,7 @@ function builtins.c.include_dir(path)
     --- @class IncludeDirC
     --- @field path string
     local IncludeDirC = {
-        path = fab.path_abs(path)
+        path = fab.path_rel(path)
     }
 
     setmetatable(IncludeDirC, {
@@ -240,8 +249,10 @@ function builtins.nasm.get_assembler(path)
 
         local outputs = {}
         for _, source in ipairs(sources) do
-            local output = self.rule:build(source.path .. ".o", { source }, {
-                depfile = source.path .. ".d",
+            local relative_path = builtins.generator_output_path(source)
+
+            local output = self.rule:build(relative_path .. ".o", { source }, {
+                depfile = relative_path .. ".d",
                 args = table.join(args, " ")
             })
 

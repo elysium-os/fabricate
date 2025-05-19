@@ -34,7 +34,7 @@ Invokes (executes) the executable with given arguments. If the invocation fails,
 
 Source
 ======
-Represents a singular source file.
+Represents a singular source file. Source files have to be located within the project root or within the root of a dependency.
 
 .name: string
 -------------
@@ -42,11 +42,7 @@ Filename of the source file.
 
 .path: string
 -------------
-Path of the source file relative to the project root.
-
-.abs_path: string
------------------
-Absolute path to the source file.
+Absolute path of the source file.
 
 .. _config-obj-rule:
 
@@ -84,10 +80,6 @@ Filename of the output file.
 
 .path: string
 -------------
-Path of the output file relative to the build directory.
-
-.abs_path: string
------------------
 Absolute path to the output file.
 
 :install(dest)

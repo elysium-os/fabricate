@@ -11,8 +11,7 @@ function Executable:invoke(...) end
 
 --- @class Source
 --- @field name string Source filename.
---- @field path string Path of the source file relative to the project root.
---- @field abs_path string Absolute path to the source file.
+--- @field path string Absolute path to the source file.
 Source = {}
 
 --- @class Rule
@@ -28,8 +27,7 @@ function Rule:build(output, input, variables) end
 
 --- @class Output
 --- @field name string Filename of the output file.
---- @field path string Path of the output file relative to the build directory.
---- @field abs_path string Absolute path to the output file.
+--- @field path string Absolute path to the output file.
 Output = {}
 
 --- Tells fabricate to install an output when the install subcommand is invoked. The path is relative to the prefix.
