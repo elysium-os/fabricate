@@ -30,7 +30,7 @@ builtins = { c = {}, nasm = {} }
 --- @param source Source
 --- @return string
 function builtins.generator_output_path(source)
-    return fab.path_join("gen", fab.path_rel(source.path))
+    return "gen_" .. fab.path_rel(source.path)
 end
 
 --- Get a linker object.
