@@ -35,7 +35,7 @@ end
 
 --- Generate objects from sources based on their file extension.
 --- @param sources Source[]
---- @param generators { [string]: fun(source: Source[]): Output[] }
+--- @param generators { [string]: fun(sources: Source[]): Output[] }
 --- @return Output[]
 function builtins.generate(sources, generators)
     local mapped = {}
