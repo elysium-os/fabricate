@@ -35,7 +35,7 @@ function table.contains(t, value)
     return false
 end
 
---- Join a table of strings
+--- Join a table of strings.
 --- @param t string[]
 --- @param separator string
 --- @return string
@@ -51,6 +51,29 @@ function table.join(t, separator)
         str = str .. v
     end
     return str
+end
+
+--- Collect the keys of a table.
+--- @param t table
+--- @return any[]
+function table.keys(t)
+    local keys = {}
+    for key, _ in pairs(t) do
+        table.insert(keys, key)
+    end
+    return keys
+end
+
+--- Map a table to a list of values using a function.
+--- @param t table
+--- @param fn fun(k: any, v: any): any
+--- @return any[]
+function table.map(t, fn)
+    local values = {}
+    for k, v in pairs(t) do
+        table.insert(values, fn(k, v))
+    end
+    return values
 end
 
 --- Print the table key-values.

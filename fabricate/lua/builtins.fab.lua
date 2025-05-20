@@ -143,30 +143,35 @@ function builtins.c.get_compiler(compiler, path)
         })
     }
 
-    --- Compile source files into separate object files.
-    --- @param sources Source[]
+    --- Compile source file into an object file.
+    --- @param source Source
     --- @param include_dirs IncludeDirC[]
     --- @param args string[]
-    --- @return Output[]
-    function Compiler:compile_objects(sources, include_dirs, args)
+    --- @return Output
+    function Compiler:compile_object(source, include_dirs, args)
         args = args or {}
 
         for _, include_dir in ipairs(include_dirs or {}) do
             table.insert(args, "-I" .. include_dir.path)
         end
 
+        local relative_path = builtins.generator_output_path(source)
+        return self.compile_rule:build(relative_path .. ".o", { source }, {
+            depfile = relative_path .. ".d",
+            args = table.join(args, " ")
+        })
+    end
+
+    --- Compile source files into separate object files.
+    --- @param sources Source[]
+    --- @param include_dirs IncludeDirC[]
+    --- @param args string[]
+    --- @return Output[]
+    function Compiler:compile_objects(sources, include_dirs, args)
         local outputs = {}
         for _, source in ipairs(sources) do
-            local relative_path = builtins.generator_output_path(source)
-
-            local output = self.compile_rule:build(relative_path .. ".o", { source }, {
-                depfile = relative_path .. ".d",
-                args = table.join(args, " ")
-            })
-
-            table.insert(outputs, output)
+            table.insert(outputs, self:compile_object(source, include_dirs, args))
         end
-
         return outputs
     end
 
