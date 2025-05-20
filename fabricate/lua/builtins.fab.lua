@@ -33,6 +33,29 @@ function builtins.generator_output_path(source)
     return "gen_" .. fab.path_rel(source.path)
 end
 
+--- Generate objects from sources based on their file extension.
+--- @param sources Source[]
+--- @param generators { [string]: fun(source: Source[]): Output[] }
+--- @return Output[]
+function builtins.generate(sources, generators)
+    local mapped = {}
+    for _, source in ipairs(sources) do
+        for extension, generator in pairs(generators) do
+            if source.name:ends_with("." .. extension) then
+                mapped[extension] = mapped[extension] or { generator = generator, sources = {} }
+                table.insert(mapped[extension].sources, source)
+            end
+        end
+    end
+
+    local objects = {}
+    for _, m in pairs(mapped) do
+        table.extend(objects, m.generator(m.sources))
+    end
+
+    return objects
+end
+
 --- Get a linker object.
 --- @param linker ("ld.lld" | "ld")?
 --- @param path string?
@@ -144,33 +167,34 @@ function builtins.c.get_compiler(compiler, path)
     }
 
     --- Compile source file into an object file.
+    --- @param name string
     --- @param source Source
     --- @param include_dirs IncludeDirC[]
     --- @param args string[]
+    --- @param depfile string?
     --- @return Output
-    function Compiler:compile_object(source, include_dirs, args)
+    function Compiler:compile_object(name, source, include_dirs, args, depfile)
         args = args or {}
 
         for _, include_dir in ipairs(include_dirs or {}) do
             table.insert(args, "-I" .. include_dir.path)
         end
 
-        local relative_path = builtins.generator_output_path(source)
-        return self.compile_rule:build(relative_path .. ".o", { source }, {
-            depfile = relative_path .. ".d",
-            args = table.join(args, " ")
-        })
+        local vars = { args = table.join(args, " ") }
+        if depfile ~= nil then vars.depfile = depfile end
+        return self.compile_rule:build(name, { source }, vars)
     end
 
     --- Compile source files into separate object files.
     --- @param sources Source[]
-    --- @param include_dirs IncludeDirC[]
     --- @param args string[]
+    --- @param include_dirs IncludeDirC[]
     --- @return Output[]
-    function Compiler:compile_objects(sources, include_dirs, args)
+    function Compiler:generate(sources, args, include_dirs)
         local outputs = {}
         for _, source in ipairs(sources) do
-            table.insert(outputs, self:compile_object(source, include_dirs, args))
+            local genpath = builtins.generator_output_path(source)
+            table.insert(outputs, self:compile_object(genpath .. ".o", source, include_dirs, args, genpath .. ".d"))
         end
         return outputs
     end
@@ -181,19 +205,17 @@ function builtins.c.get_compiler(compiler, path)
     --- @param args string[]
     --- @return Output
     function Compiler:link(name, objects, args)
-        args = args or {}
-        return self.link_rule:build(name, objects, { args = table.join(args, " ") })
+        return self.link_rule:build(name, objects, { args = table.join(args or {}, " ") })
     end
 
     --- Use the compiler to compiler and link source files.
     --- @param name string Name of the output
     --- @param sources Source[]
-    --- @param include_dirs IncludeDirC[]
     --- @param args string[]
+    --- @param include_dirs IncludeDirC[]
     --- @return Output
-    function Compiler:compile(name, sources, include_dirs, args)
-        args = args or {}
-        return self:link(name, self:compile_objects(sources, include_dirs, args), args)
+    function Compiler:compile(name, sources, args, include_dirs)
+        return self:link(name, self:generate(sources, args or {}, include_dirs), args or {})
     end
 
     return Compiler
@@ -245,29 +267,29 @@ function builtins.nasm.get_assembler(path)
         })
     }
 
-    --- Assemble source files into individual object files.
+    --- Assemble source file.
+    --- @param name string
+    --- @param source Source
+    --- @param args string[]
+    --- @param depfile string?
+    --- @return Output
+    function Assembler:assemble(name, source, args, depfile)
+        local vars = { args = table.join(args, " ") }
+        if depfile ~= nil then vars.depfile = depfile end
+        return self.rule:build(name, { source }, vars)
+    end
+
+    --- Assemble source files into separate object files.
     --- @param sources Source[]
     --- @param args string[]
     --- @return Output[]
-    --- @overload fun(source: Source, args: string[]): Output
-    function Assembler:assemble(sources, args)
-        local assemble = function(source, args)
-            local relative_path = builtins.generator_output_path(source)
-            return self.rule:build(relative_path .. ".o", { source }, {
-                depfile = relative_path .. ".d",
-                args = table.join(args, " ")
-            })
+    function Assembler:generate(sources, args)
+        local outputs = {}
+        for _, source in ipairs(sources) do
+            local genpath = builtins.generator_output_path(source)
+            table.insert(outputs, self:assemble(genpath .. ".o", source, args, genpath .. ".d"))
         end
-
-        if type(sources) == "table" then
-            local outputs = {}
-            for _, source in ipairs(sources) do
-                table.insert(outputs, assemble(source, args or {}))
-            end
-            return outputs
-        end
-
-        return assemble(sources, args)
+        return outputs
     end
 
     return Assembler
