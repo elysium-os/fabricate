@@ -76,6 +76,17 @@ function table.map(t, fn)
     return values
 end
 
+--- Clone the first level of a table.
+--- @param t table
+--- @return table
+function table.shallow_clone(t)
+    local copy = {}
+    for k, v in pairs(t) do
+        copy[k] = v
+    end
+    return copy
+end
+
 --- Print the table key-values.
 --- @param t table
 function table.print(t)

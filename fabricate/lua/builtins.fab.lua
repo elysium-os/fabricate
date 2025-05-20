@@ -174,7 +174,7 @@ function builtins.c.get_compiler(compiler, path)
     --- @param depfile string?
     --- @return Output
     function Compiler:compile_object(name, source, include_dirs, args, depfile)
-        args = args or {}
+        args = table.shallow_clone(args or {})
 
         for _, include_dir in ipairs(include_dirs or {}) do
             table.insert(args, "-I" .. include_dir.path)
