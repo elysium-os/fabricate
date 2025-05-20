@@ -180,9 +180,10 @@ function builtins.c.get_compiler(compiler, path)
             table.insert(args, "-I" .. include_dir.path)
         end
 
-        local vars = { args = table.join(args, " ") }
-        if depfile ~= nil then vars.depfile = depfile end
-        return self.compile_rule:build(name, { source }, vars)
+        return self.compile_rule:build(name, { source }, {
+            args = table.join(args, " "),
+            depfile = depfile or name .. ".d"
+        })
     end
 
     --- Compile source files into separate object files.
@@ -274,9 +275,10 @@ function builtins.nasm.get_assembler(path)
     --- @param depfile string?
     --- @return Output
     function Assembler:assemble(name, source, args, depfile)
-        local vars = { args = table.join(args, " ") }
-        if depfile ~= nil then vars.depfile = depfile end
-        return self.rule:build(name, { source }, vars)
+        return self.rule:build(name, { source }, {
+            args = table.join(args, " "),
+            depfile = depfile or name .. ".d"
+        })
     end
 
     --- Assemble source files into separate object files.
