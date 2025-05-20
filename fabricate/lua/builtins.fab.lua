@@ -26,6 +26,20 @@ end
 
 builtins = { c = {}, nasm = {} }
 
+--- Resolve executable from a list of names.
+--- @param names string[]
+--- @return Executable?
+--- @return string? name
+function builtins.resolve_executable(names)
+    for _, name in ipairs(names) do
+        local exec = fab.find_executable(name)
+        if exec ~= nil then
+            return exec, name
+        end
+    end
+    return nil, nil
+end
+
 --- Get output path for a source file for generator type rules.
 --- @param source Source
 --- @return string
@@ -75,13 +89,7 @@ function builtins.get_linker(linker, path)
         end
     end
 
-    for _, possible_linker in ipairs(linkers) do
-        exec = fab.find_executable(possible_linker)
-        name = possible_linker
-        if exec ~= nil then
-            goto found
-        end
-    end
+    exec, name = builtins.resolve_executable(linkers)
 
     ::found::
 
@@ -132,13 +140,7 @@ function builtins.c.get_compiler(compiler, path)
         end
     end
 
-    for _, possible_compiler in ipairs(compilers) do
-        exec = fab.find_executable(possible_compiler)
-        name = possible_compiler
-        if exec ~= nil then
-            goto found
-        end
-    end
+    exec, name = builtins.resolve_executable(compilers)
 
     ::found::
 
