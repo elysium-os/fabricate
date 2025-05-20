@@ -249,22 +249,25 @@ function builtins.nasm.get_assembler(path)
     --- @param sources Source[]
     --- @param args string[]
     --- @return Output[]
+    --- @overload fun(source: Source, args: string[]): Output
     function Assembler:assemble(sources, args)
-        args = args or {}
-
-        local outputs = {}
-        for _, source in ipairs(sources) do
+        local assemble = function(source, args)
             local relative_path = builtins.generator_output_path(source)
-
-            local output = self.rule:build(relative_path .. ".o", { source }, {
+            return self.rule:build(relative_path .. ".o", { source }, {
                 depfile = relative_path .. ".d",
                 args = table.join(args, " ")
             })
-
-            table.insert(outputs, output)
         end
 
-        return outputs
+        if type(sources) == "table" then
+            local outputs = {}
+            for _, source in ipairs(sources) do
+                table.insert(outputs, assemble(source, args or {}))
+            end
+            return outputs
+        end
+
+        return assemble(sources, args)
     end
 
     return Assembler
