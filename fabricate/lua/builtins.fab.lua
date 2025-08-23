@@ -124,9 +124,11 @@ end
 --- Get a C compiler object.
 --- @param compiler ("clang" | "gcc")?
 --- @param path string?
+--- @param compdb boolean?
 --- @return Compiler?
-function builtins.c.get_compiler(compiler, path)
+function builtins.c.get_compiler(compiler, path, compdb)
     local compilers = { "clang", "gcc" } -- Must match depstyle values
+    compdb = compdb == false and false or true
 
     local name = nil
     local exec = nil
@@ -159,7 +161,7 @@ function builtins.c.get_compiler(compiler, path)
             description = "Compiling C object @OUT@ from @IN@",
             command = { exec, "-MD", "-MF", "@DEPFILE@", "-MQ", "@OUT@", "@ARGS@", "-c", "-o", "@OUT@", "@IN@" },
             depstyle = name,
-            compdb = true
+            compdb = compdb
         }),
         link_rule = fab.rule({
             name = "compiler_c_" .. name .. "_link",
@@ -243,8 +245,11 @@ end
 
 --- Get a NASM assembler object.
 --- @param path string?
+--- @param compdb boolean?
 --- @return Assembler?
-function builtins.nasm.get_assembler(path)
+function builtins.nasm.get_assembler(path, compdb)
+    compdb = compdb == false and false or true
+
     local exec = nil
     if type(path) == "string" then
         exec = fab.get_executable(path)
@@ -266,7 +271,7 @@ function builtins.nasm.get_assembler(path)
             description = "Assembling @IN@ from @OUT@",
             command = { exec, "@ARGS@", "-MD", "@DEPFILE@", "-MQ", "@OUT@", "-o", "@OUT@", "@IN@" },
             depstyle = "gcc",
-            compdb = true
+            compdb = compdb
         })
     }
 
