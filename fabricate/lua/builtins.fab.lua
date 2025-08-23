@@ -127,8 +127,9 @@ end
 --- @param compdb boolean?
 --- @return Compiler?
 function builtins.c.get_compiler(compiler, path, compdb)
+    compdb = compdb == nil or compdb
+
     local compilers = { "clang", "gcc" } -- Must match depstyle values
-    compdb = compdb == false and false or true
 
     local name = nil
     local exec = nil
@@ -248,7 +249,7 @@ end
 --- @param compdb boolean?
 --- @return Assembler?
 function builtins.nasm.get_assembler(path, compdb)
-    compdb = compdb == false and false or true
+    compdb = compdb == nil or compdb
 
     local exec = nil
     if type(path) == "string" then
