@@ -40,6 +40,11 @@ Configures the build directory (and downloads dependencies) with the given argum
 -o OPTION, --option OPTION
     Specify the value of a *user defined* option (an option defined in the :ref:`configuration <config>`).
 
+.. _cli-flag-depdir:
+
+--depdir DEPENDENCY_DIR
+    Specify the directory of an already installed dependency. The format is dependecy=directory.
+
 .. _cli-subcommand-build:
 
 build
