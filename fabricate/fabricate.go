@@ -17,6 +17,7 @@ type Dependency struct {
 	Name     string `json:"name"`
 	URL      string `json:"url"`
 	Revision string `json:"revision"`
+	Path     string `json:"path"`
 }
 
 type FabCache struct {
@@ -59,6 +60,9 @@ func main() {
 
 	options := make([]string, 0)
 	configureCommand.StringSlice(&options, "o", "option", "Specify the value of a *user defined* option in the format of key=value.")
+
+	depdirs := make([]string, 0)
+	configureCommand.StringSlice(&depdirs, "", "depdir", "Specify the directory of an already installed dependency. The format is dependecy=directory.")
 
 	prefix := "/usr"
 	configureCommand.String(&prefix, "", "prefix", "Specify installation prefix (default: /usr).")
@@ -125,7 +129,26 @@ func main() {
 			optionsMap[parts[0]] = parts[1]
 		}
 
-		if err = configure(cache, ninjaPath, configPath, buildDir, optionsMap, prefix); err != nil {
+		depdirsMap := make(map[string]string, 0)
+		for _, depdir := range depdirs {
+			parts := strings.SplitN(depdir, "=", 2)
+			if len(parts) != 2 {
+				panic(fmt.Errorf("invalid depdir format `%s` (expected dependency=dir)", depdir))
+			}
+
+			stat, err := os.Stat(parts[1])
+			if err != nil {
+				panic(fmt.Sprintf("error when stating depdir \"%s\": %s", parts[1], err))
+			}
+
+			if !stat.IsDir() {
+				panic(fmt.Sprintf("depdir \"%s\" is not a directory", parts[1]))
+			}
+
+			depdirsMap[parts[0]] = parts[1]
+		}
+
+		if err = configure(cache, ninjaPath, configPath, buildDir, optionsMap, prefix, depdirsMap); err != nil {
 			panic(err)
 		}
 
@@ -140,9 +163,9 @@ func main() {
 
 	case "install":
 		if !cache.loaded {
-		    panic("cache not found, cannot install")
+			panic("cache not found, cannot install")
 		}
-		
+
 		for dest, src := range cache.Install {
 			dest = filepath.Join(cache.Prefix, dest)
 			src = filepath.Join(buildDir, src)

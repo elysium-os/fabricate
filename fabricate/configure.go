@@ -102,7 +102,7 @@ func (output Output) String() string {
 	return fmt.Sprintf("Output(\"%s\")", output.path)
 }
 
-func configure(cache FabCache, ninjaPath string, configPath string, buildDir string, options map[string]string, prefix string) error {
+func configure(cache FabCache, ninjaPath string, configPath string, buildDir string, options map[string]string, prefix string, depdirs map[string]string) error {
 	configDir := filepath.Dir(configPath)
 	dependencyDir := filepath.Join(buildDir, "dependency")
 
@@ -404,7 +404,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 				case "url":
 					l.PushString(dependency.URL)
 				case "path":
-					l.PushString(filepath.Join(dependencyDir, dependency.Name))
+					l.PushString(dependency.Path)
 				case "glob":
 					l.PushGoFunction(func(l *lua.State) int {
 						ignores := make([]string, 0)
@@ -412,7 +412,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 							ignores = append(ignores, lua.CheckString(l, i))
 						}
 
-						matches, err := doGlob(filepath.Join(dependencyDir, dependency.Name), lua.CheckString(l, 2), ignores)
+						matches, err := doGlob(dependency.Path, lua.CheckString(l, 2), ignores)
 						if err != nil {
 							lua.ArgumentError(l, 2, fmt.Sprintf("glob failed: %s", err))
 						}
@@ -653,7 +653,15 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					path = filepath.Join(configDir, path)
 				}
 
-				if !pathIsWithin(l, path, configuration.projectRoot) && !pathIsWithin(l, path, dependencyDir) {
+				inDep := false
+				for _, depdir := range depdirs {
+					if !pathIsWithin(l, path, depdir) {
+						continue
+					}
+					inDep = true
+				}
+
+				if !pathIsWithin(l, path, configuration.projectRoot) && !pathIsWithin(l, path, dependencyDir) && !inDep {
 					lua.ArgumentError(l, 1, "source is not within the project root or a dependency root")
 				}
 
@@ -809,7 +817,14 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 				url := lua.CheckString(l, 2)
 				revision := lua.CheckString(l, 3)
 
-				dependency := Dependency{name, url, revision}
+				dependencyPath := filepath.Join(dependencyDir, name)
+
+				depdir, hasDepDir := depdirs[name]
+				if hasDepDir {
+					dependencyPath = depdir
+				}
+
+				dependency := Dependency{name, url, revision, dependencyPath}
 				configuration.dependencies = append(configuration.dependencies, dependency)
 
 				for _, dep := range cache.Dependencies {
@@ -817,7 +832,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						continue
 					}
 
-					if dep.URL != url || dep.Revision != revision {
+					if dep.URL != url || dep.Revision != revision || dep.Path != dependencyPath {
 						break
 					}
 
@@ -827,39 +842,40 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					return 1
 				}
 
-				dir := filepath.Join(dependencyDir, name)
-				os.RemoveAll(dir)
-				repo, err := git.PlainClone(dir, false, &git.CloneOptions{
-					URL:      url,
-					Depth:    0,
-					Progress: nil,
-				})
-				if err != nil {
-					panic(err)
-				}
-
-				var ref *plumbing.Reference
-				ref, err = repo.Reference(plumbing.NewBranchReferenceName(revision), true)
-				if err != nil {
-					ref, err = repo.Reference(plumbing.NewTagReferenceName(revision), true)
+				if !hasDepDir {
+					os.RemoveAll(dependencyPath)
+					repo, err := git.PlainClone(dependencyPath, false, &git.CloneOptions{
+						URL:      url,
+						Depth:    0,
+						Progress: nil,
+					})
 					if err != nil {
-						hash := plumbing.NewHash(revision)
-						_, err = repo.CommitObject(hash)
-						if err != nil {
-							log.Fatalf("Failed to resolve revision `%s`: %s", revision, err)
-						}
-						ref = plumbing.NewHashReference("", hash)
+						panic(err)
 					}
-				}
 
-				wt, err := repo.Worktree()
-				if err != nil {
-					panic(err)
-				}
+					var ref *plumbing.Reference
+					ref, err = repo.Reference(plumbing.NewBranchReferenceName(revision), true)
+					if err != nil {
+						ref, err = repo.Reference(plumbing.NewTagReferenceName(revision), true)
+						if err != nil {
+							hash := plumbing.NewHash(revision)
+							_, err = repo.CommitObject(hash)
+							if err != nil {
+								log.Fatalf("Failed to resolve revision `%s`: %s", revision, err)
+							}
+							ref = plumbing.NewHashReference("", hash)
+						}
+					}
 
-				err = wt.Checkout(&git.CheckoutOptions{Hash: ref.Hash()})
-				if err != nil {
-					panic(err)
+					wt, err := repo.Worktree()
+					if err != nil {
+						panic(err)
+					}
+
+					err = wt.Checkout(&git.CheckoutOptions{Hash: ref.Hash()})
+					if err != nil {
+						panic(err)
+					}
 				}
 
 				l.PushUserData(dependency)
