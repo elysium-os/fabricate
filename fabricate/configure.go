@@ -246,7 +246,12 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					lua.CheckType(l, 3, lua.TypeTable)
 					lua.CheckType(l, 4, lua.TypeTable)
 
-					hasImplicits := !l.IsNoneOrNil(5)
+					startingIndex := -3
+					if l.Top() > 4 {
+						startingIndex = -4
+					}
+
+					hasImplicits := startingIndex == -4 && !l.IsNil(5)
 					if hasImplicits {
 						lua.CheckType(l, 5, lua.TypeTable)
 					}
@@ -263,11 +268,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 
 					in := make([]string, 0)
 					l.PushNil()
-					index := -3
-					if hasImplicits {
-						index = -4
-					}
-					for l.Next(index) {
+					for l.Next(startingIndex) {
 						source := lua.TestUserData(l, -1, "fab_source")
 						if source != nil {
 							in = append(in, source.(Source).path)
@@ -282,16 +283,18 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 							continue
 						}
 
+						s, ok := l.ToString(-1)
+						if ok {
+							fmt.Println(s)
+						}
+
 						lua.ArgumentError(l, 3, fmt.Sprintf("input table contains an invalid value type `%s`", l.TypeOf(-1).String()))
 					}
 
 					variables := make(map[string]string, 0)
 					l.PushNil()
-					index = -2
-					if hasImplicits {
-						index = -3
-					}
-					for l.Next(-2) {
+					startingIndex++
+					for l.Next(startingIndex) {
 						key, ok := l.ToString(-2)
 						if !ok {
 							lua.ArgumentError(l, 4, fmt.Sprintf("variables contains an invalid key type `%s`", l.TypeOf(-2).String()))
@@ -331,7 +334,8 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					implicitDependencies := make([]string, 0)
 					if hasImplicits {
 						l.PushNil()
-						for l.Next(-2) {
+						startingIndex++
+						for l.Next(startingIndex) {
 							source := lua.TestUserData(l, -1, "fab_source")
 							if source != nil {
 								implicitDependencies = append(implicitDependencies, source.(Source).path)
@@ -346,7 +350,7 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 								continue
 							}
 
-							lua.ArgumentError(l, 3, fmt.Sprintf("implicitDependencies table contains an invalid value type `%s`", l.TypeOf(-1).String()))
+							lua.ArgumentError(l, 5, fmt.Sprintf("implicitDependencies table contains an invalid value type `%s`", l.TypeOf(-1).String()))
 						}
 					}
 
