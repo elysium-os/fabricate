@@ -1140,7 +1140,7 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 			inputs += strings.Join(input, " ")
 		}
 		if len(build.implicitDependencies) > 0 {
-			inputs = " | " + strings.Join(implicitDeps, " ")
+			inputs += " | " + strings.Join(implicitDeps, " ")
 		}
 
 		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", output, build.rule.name, inputs)); err != nil {
