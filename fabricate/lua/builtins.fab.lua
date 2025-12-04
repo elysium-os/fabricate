@@ -113,9 +113,10 @@ function builtins.get_linker(linker, path)
     --- @param name string Name of the output
     --- @param objects (Source | Output)[]
     --- @param args string[]
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output
-    function Linker:link(name, objects, args)
-        return self.rule:build(name, objects, { args = table.join(args or {}, " ") })
+    function Linker:link(name, objects, args, implicitDependencies)
+        return self.rule:build(name, objects, { args = table.join(args or {}, " ") }, implicitDependencies)
     end
 
     return Linker
@@ -177,8 +178,9 @@ function builtins.c.get_compiler(compiler, path, compdb)
     --- @param include_dirs IncludeDirC[]
     --- @param args string[]
     --- @param depfile string?
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output
-    function Compiler:compile_object(name, source, include_dirs, args, depfile)
+    function Compiler:compile_object(name, source, include_dirs, args, depfile, implicitDependencies)
         args = table.shallow_clone(args or {})
 
         for _, include_dir in ipairs(include_dirs or {}) do
@@ -188,19 +190,21 @@ function builtins.c.get_compiler(compiler, path, compdb)
         return self.compile_rule:build(name, { source }, {
             args = table.join(args, " "),
             depfile = depfile or name .. ".d"
-        })
+        }, implicitDependencies)
     end
 
     --- Compile source files into separate object files.
     --- @param sources Source[]
     --- @param args string[]
     --- @param include_dirs IncludeDirC[]
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output[]
-    function Compiler:generate(sources, args, include_dirs)
+    function Compiler:generate(sources, args, include_dirs, implicitDependencies)
         local outputs = {}
         for _, source in ipairs(sources) do
             local genpath = builtins.generator_output_path(source)
-            table.insert(outputs, self:compile_object(genpath .. ".o", source, include_dirs, args, genpath .. ".d"))
+            table.insert(outputs,
+                self:compile_object(genpath .. ".o", source, include_dirs, args, genpath .. ".d", implicitDependencies))
         end
         return outputs
     end
@@ -209,9 +213,10 @@ function builtins.c.get_compiler(compiler, path, compdb)
     --- @param name string Name of the output
     --- @param objects (Source | Output)[]
     --- @param args string[]
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output
-    function Compiler:link(name, objects, args)
-        return self.link_rule:build(name, objects, { args = table.join(args or {}, " ") })
+    function Compiler:link(name, objects, args, implicitDependencies)
+        return self.link_rule:build(name, objects, { args = table.join(args or {}, " ") }, implicitDependencies)
     end
 
     --- Use the compiler to compiler and link source files.
@@ -219,9 +224,10 @@ function builtins.c.get_compiler(compiler, path, compdb)
     --- @param sources Source[]
     --- @param args string[]
     --- @param include_dirs IncludeDirC[]
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output
-    function Compiler:compile(name, sources, args, include_dirs)
-        return self:link(name, self:generate(sources, args or {}, include_dirs), args or {})
+    function Compiler:compile(name, sources, args, include_dirs, implicitDependencies)
+        return self:link(name, self:generate(sources, args or {}, include_dirs), args or {}, implicitDependencies)
     end
 
     return Compiler
@@ -281,23 +287,25 @@ function builtins.nasm.get_assembler(path, compdb)
     --- @param source Source
     --- @param args string[]
     --- @param depfile string?
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output
-    function Assembler:assemble(name, source, args, depfile)
+    function Assembler:assemble(name, source, args, depfile, implicitDependencies)
         return self.rule:build(name, { source }, {
             args = table.join(args, " "),
             depfile = depfile or name .. ".d"
-        })
+        }, implicitDependencies)
     end
 
     --- Assemble source files into separate object files.
     --- @param sources Source[]
     --- @param args string[]
+    --- @param implicitDependencies (Source | Output)[]?
     --- @return Output[]
-    function Assembler:generate(sources, args)
+    function Assembler:generate(sources, args, implicitDependencies)
         local outputs = {}
         for _, source in ipairs(sources) do
             local genpath = builtins.generator_output_path(source)
-            table.insert(outputs, self:assemble(genpath .. ".o", source, args, genpath .. ".d"))
+            table.insert(outputs, self:assemble(genpath .. ".o", source, args, genpath .. ".d", implicitDependencies))
         end
         return outputs
     end
