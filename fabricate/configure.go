@@ -285,10 +285,6 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						lua.ArgumentError(l, 3, fmt.Sprintf("input table contains an invalid value type `%s`", l.TypeOf(-1).String()))
 					}
 
-					if len(in) <= 0 {
-						lua.ArgumentError(l, 3, "input table is empty")
-					}
-
 					variables := make(map[string]string, 0)
 					l.PushNil()
 					index = -2
@@ -1118,6 +1114,16 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 			input = append(input, ninjaEscape(relativePath))
 		}
 
+		implicitDeps := make([]string, 0)
+		for _, dep := range build.implicitDependencies {
+			relativePath, err := filepath.Rel(configuration.buildDir, dep)
+			if err != nil {
+				panic(fmt.Sprintf("could not resolve relative path to build directory: %s", err))
+			}
+
+			implicitDeps = append(implicitDeps, ninjaEscape(relativePath))
+		}
+
 		output, err := filepath.Rel(configuration.buildDir, build.output.path)
 		if err != nil {
 			panic(fmt.Sprintf("could not resolve relative path to build directory: %s", err))
@@ -1125,15 +1131,15 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 		output = ninjaEscape(output)
 		output = strings.ReplaceAll(output, ":", "$:")
 
-		implicitDepsString := ""
+		inputs := ""
+		if len(input) > 0 {
+			inputs += strings.Join(input, " ")
+		}
 		if len(build.implicitDependencies) > 0 {
-			implicitDepsString = " |"
-			for _, dep := range build.implicitDependencies {
-				implicitDepsString += " " + ninjaEscape(dep)
-			}
+			inputs = " | " + strings.Join(implicitDeps, " ")
 		}
 
-		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s%s\n", output, build.rule.name, strings.Join(input, " "), implicitDepsString)); err != nil {
+		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", output, build.rule.name, inputs)); err != nil {
 			return nil, err
 		}
 
