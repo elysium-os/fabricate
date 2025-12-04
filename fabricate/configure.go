@@ -1,5 +1,11 @@
 package main
 
+/*
+ * This code is a crime against humanity.
+ * DO NOT READ IT.
+ * I BEG YOU, YOU MIGHT NOT SURVIVE TO TELL THE TALE.
+ */
+
 import (
 	"bytes"
 	"encoding/json"
@@ -48,10 +54,11 @@ type Rule struct {
 }
 
 type Build struct {
-	rule      *Rule
-	input     []string
-	output    Output
-	variables map[string]string
+	rule                 *Rule
+	input                []string
+	output               Output
+	variables            map[string]string
+	implicitDependencies []string
 }
 
 type Output struct {
@@ -239,6 +246,11 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 					lua.CheckType(l, 3, lua.TypeTable)
 					lua.CheckType(l, 4, lua.TypeTable)
 
+					hasImplicits := !l.IsNoneOrNil(5)
+					if hasImplicits {
+						lua.CheckType(l, 5, lua.TypeTable)
+					}
+
 					out = filepath.Clean(out)
 					if strings.HasPrefix(out, "..") || filepath.IsAbs(out) {
 						lua.ArgumentError(l, 2, "output path escapes build directory")
@@ -251,7 +263,11 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 
 					in := make([]string, 0)
 					l.PushNil()
-					for l.Next(-3) {
+					index := -3
+					if hasImplicits {
+						index = -4
+					}
+					for l.Next(index) {
 						source := lua.TestUserData(l, -1, "fab_source")
 						if source != nil {
 							in = append(in, source.(Source).path)
@@ -275,6 +291,10 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 
 					variables := make(map[string]string, 0)
 					l.PushNil()
+					index = -2
+					if hasImplicits {
+						index = -3
+					}
 					for l.Next(-2) {
 						key, ok := l.ToString(-2)
 						if !ok {
@@ -312,10 +332,32 @@ func configure(cache FabCache, ninjaPath string, configPath string, buildDir str
 						variables[fmt.Sprintf("fabvar_%s", key)] = value
 					}
 
+					implicitDependencies := make([]string, 0)
+					if hasImplicits {
+						l.PushNil()
+						for l.Next(-2) {
+							source := lua.TestUserData(l, -1, "fab_source")
+							if source != nil {
+								implicitDependencies = append(implicitDependencies, source.(Source).path)
+								l.Pop(1)
+								continue
+							}
+
+							output := lua.TestUserData(l, -1, "fab_output")
+							if output != nil {
+								implicitDependencies = append(implicitDependencies, output.(Output).path)
+								l.Pop(1)
+								continue
+							}
+
+							lua.ArgumentError(l, 3, fmt.Sprintf("implicitDependencies table contains an invalid value type `%s`", l.TypeOf(-1).String()))
+						}
+					}
+
 					output := Output{path: filepath.Clean(filepath.Join(configuration.buildDir, out))}
 					configuration.outputs = append(configuration.outputs, output)
 
-					build := Build{rule: &rule, input: in, output: output, variables: variables}
+					build := Build{rule: &rule, input: in, output: output, variables: variables, implicitDependencies: implicitDependencies}
 					configuration.builds = append(configuration.builds, build)
 
 					l.PushUserData(output)
@@ -1083,7 +1125,15 @@ func ninjaGenerate(configuration FabConfiguration) ([]byte, error) {
 		output = ninjaEscape(output)
 		output = strings.ReplaceAll(output, ":", "$:")
 
-		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s\n", output, build.rule.name, strings.Join(input, " "))); err != nil {
+		implicitDepsString := ""
+		if len(build.implicitDependencies) > 0 {
+			implicitDepsString = " |"
+			for _, dep := range build.implicitDependencies {
+				implicitDepsString += " " + ninjaEscape(dep)
+			}
+		}
+
+		if _, err := buffer.WriteString(fmt.Sprintf("build %s: %s %s%s\n", output, build.rule.name, strings.Join(input, " "), implicitDepsString)); err != nil {
 			return nil, err
 		}
 
