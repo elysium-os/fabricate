@@ -1,0 +1,9 @@
+[book]
+title = "Fabricate Documentation"
+authors = ["WuX"]
+language = "en"
+src = "src"
+
+
+[output.html]
+default-theme = "dark"
