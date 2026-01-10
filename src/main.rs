@@ -52,8 +52,8 @@ struct SetupOpts {
 
 #[derive(Args)]
 struct InstallOpts {
-    #[arg(long, help = "Specify the destdir of the install", default_value = "")]
-    dest_dir: String,
+    #[arg(long, help = "Specify the destdir of the install", env = "DESTDIR")]
+    dest_dir: Option<String>,
 }
 
 fn keyvalue_opt_validate(s: &str) -> Result<(String, String), String> {
@@ -84,8 +84,8 @@ fn main() -> Result<()> {
                 let abs_src = build_dir.join(&src);
                 let mut abs_dest = PathBuf::from(&cache.prefix).join(&dest);
 
-                if !install_opts.dest_dir.is_empty() {
-                    abs_dest = PathBuf::from(&install_opts.dest_dir).join(abs_dest)
+                if let Some(dest_dir) = &install_opts.dest_dir {
+                    abs_dest = PathBuf::from(dest_dir).join(abs_dest)
                 }
 
                 if !abs_src.exists() {
