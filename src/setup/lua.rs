@@ -2,7 +2,7 @@ use git2::{
     FetchOptions,
     build::{CheckoutBuilder, RepoBuilder},
 };
-use globset::{Glob, GlobBuilder, GlobSetBuilder};
+use globset::{GlobBuilder, GlobSetBuilder};
 use mlua::{Error, ErrorContext, FromLua, Lua, Result, Table, UserData, UserDataRef, Value, Variadic};
 use pathdiff::diff_paths;
 use regex::{Captures, Regex};
