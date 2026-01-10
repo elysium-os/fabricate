@@ -17,6 +17,7 @@ concurrency:
 jobs:
     build:
         runs-on: ubuntu-latest
+        container: debian:stable-slim
 
         steps:
             - uses: actions/checkout@v4
