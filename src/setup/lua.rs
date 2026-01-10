@@ -318,7 +318,7 @@ pub fn lua_eval_config(
     fab_table.set(
         "option",
         lua.create_function(move |l, (name, option_type, required): (String, Value, bool)| {
-            if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_') {
+            if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_' || c == '.') {
                 return Err(Error::runtime(format!("option name `{}` contains invalid characters", name)));
             }
 
@@ -570,7 +570,7 @@ pub fn lua_eval_config(
                 return Err(Error::runtime("rule that begin with `fab_` are reserved"));
             }
 
-            if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_') {
+            if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_' || c == '.') {
                 return Err(Error::runtime(format!("rule name `{}` contains invalid characters", name)));
             }
 
