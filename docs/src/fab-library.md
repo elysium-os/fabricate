@@ -5,16 +5,16 @@ functions are the authorative way of interacting with Fabricate but are
 also very crude. This is why Fabricate provides many helpers written in
 Lua for a more user friendly interface.
 
-## `fab.glob(pattern, opts?)`
+## `fab.glob(..., opts?)`
 
-Runs a glob relative to the project root and returns an array of matching path strings. `opts` is optional and may contain:
+Runs a set of globs relative to a given directory (project root by default) and returns a list of matches.
+All globs given must match. Options can be given by passing a table as the last argument, valid options are:
 
-| Field                         | Type       | Description                                                                                                      |
-| ----------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| `case_sensitive`              | `boolean`  | Override the default case-sensitive behavior.                                                                    |
-| `require_literal_separator`   | `boolean`  | If true, `*` and `?` will never match `s/`. This is false by default.                                            |
-| `require_literal_leading_dot` | `boolean`  | If true, wildcards will not match files that start with `.`. This is false by default.                           |
-| `excludes`                    | `string[]` | Additional glob patterns that are applied after the main glob; any match here is removed from the returned list. |
+| Field                       | Type      | Description                                                              |
+| --------------------------- | --------- | ------------------------------------------------------------------------ |
+| `case_sensitive`            | `boolean` | Override the default case-sensitive behavior.                            |
+| `require_literal_separator` | `boolean` | If true, `*` and `?` will never match `s/`. This is false by default.    |
+| `relative_to`               | `string`  | The directory relative to which globs will run. Project root by default. |
 
 ```lua
 -- collect all C sources outside the tests directory

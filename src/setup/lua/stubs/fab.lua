@@ -4,9 +4,13 @@
 fab = {}
 
 --- Matches a glob against the project root, returns the remaining matches.
---- @param pattern string
---- @param options { case_sensitive: boolean, require_literal_separator: boolean, require_literal_leading_dot: boolean, excludes: string[] }?
-function fab.glob(pattern, options) end
+--- A table of options can be passed in as the last argument. Valid options:
+--- - case_sensitive: boolean
+--- - require_literal_separator: boolean
+--- - relative_to: string
+--- @varargs string
+--- @return string[]
+function fab.glob(...) end
 
 --- Join path components together.
 --- @vararg string

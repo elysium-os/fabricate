@@ -2,7 +2,7 @@ use git2::{
     FetchOptions,
     build::{CheckoutBuilder, RepoBuilder},
 };
-use glob::{MatchOptions, Pattern, glob_with};
+use globset::{Glob, GlobBuilder, GlobSetBuilder};
 use mlua::{Error, ErrorContext, FromLua, Lua, Result, Table, UserData, UserDataRef, Value, Variadic};
 use pathdiff::diff_paths;
 use regex::{Captures, Regex};
@@ -13,6 +13,7 @@ use std::{
     path::PathBuf,
     rc::Rc,
 };
+use walkdir::WalkDir;
 use which::which;
 
 use crate::cache::{FabricateCache, GitDependency};
@@ -436,68 +437,83 @@ pub fn lua_eval_config(
     })?;
     fab_table.set("glob", {
         let project_root = project_root.clone();
-        lua.create_function(move |lua, (pattern, opts): (String, Option<Table>)| {
-            let opts = match opts {
-                Some(table) => table,
-                None => lua.create_table()?,
+        lua.create_function(move |_, mut args: Variadic<Value>| {
+            let opts: Option<Table> = match args.last() {
+                Some(Value::Table(_)) => match args.pop() {
+                    Some(Value::Table(t)) => Some(t),
+                    _ => None,
+                },
+                _ => None,
             };
 
-            let mut match_options = MatchOptions::new();
-            if let Some(case_sensitive) = opts.get::<Option<bool>>("case_sensitive").context("case_sensitive must be a boolean")? {
-                match_options.case_sensitive = case_sensitive;
-            }
-            if let Some(require_literal_separator) = opts.get::<Option<bool>>("require_literal_separator").context("require_literal_separator must be a boolean")? {
-                match_options.require_literal_separator = require_literal_separator;
-            }
-            if let Some(require_literal_leading_dot) = opts.get::<Option<bool>>("require_literal_leading_dot").context("require_literal_leading_dot must be a boolean")? {
-                match_options.require_literal_leading_dot = require_literal_leading_dot;
+            if args.len() == 0 {
+                return Err(Error::runtime("no globs in glob call"));
             }
 
-            let mut pattern = PathBuf::from(pattern);
-            if pattern.is_relative() {
-                pattern = project_root.join(pattern);
-            }
+            let mut case_sensitive = false;
+            let mut require_literal_separator = false;
+            let mut relative_to = project_root.to_path_buf();
+            if let Some(opts) = opts {
+                if let Some(value) = opts.get::<Option<bool>>("case_sensitive").context("case_sensitive must be a boolean")? {
+                    case_sensitive = value;
+                }
 
-            let paths = glob_with(pattern.to_string_lossy().to_string().as_str(), match_options).map_err(|err| Error::runtime(format!("invalid glob pattern: {}", err)))?;
+                if let Some(value) = opts.get::<Option<bool>>("require_literal_separator").context("require_literal_separator must be a boolean")? {
+                    require_literal_separator = value;
+                }
 
-            let mut exclude_patterns = Vec::new();
-            if let Some(excludes) = opts.get::<Option<Table>>("excludes").context("excludes must be a table of strings")? {
-                for pair in excludes.pairs::<Value, Value>() {
-                    let (_, value): (_, Value) = pair?;
-                    let str = match value.as_string() {
-                        None => return Err(Error::runtime("excludes must only contain strings")),
-                        Some(v) => v.to_string_lossy().to_string(),
-                    };
-
-                    let mut path = PathBuf::from(str);
-                    if path.is_relative() {
-                        path = project_root.join(path);
-                    }
-
-                    let pattern = Pattern::new(path.to_string_lossy().to_string().as_str()).map_err(|err| Error::runtime(format!("invalid exclude glob pattern: {}", err)))?;
-
-                    exclude_patterns.push(pattern);
+                if let Some(value) = opts.get::<Option<PathBuf>>("relative_to").context("relative_to must be a string")? {
+                    relative_to = value;
                 }
             }
 
-            let matched_paths = lua.create_table()?;
-            let mut idx = 1;
-
-            'entries: for entry in paths {
-                let path = entry.map_err(|err| Error::runtime(format!("failed to read glob entry: {}", err)))?;
-                let path_str = path.to_string_lossy().to_string();
-
-                for pattern in &exclude_patterns {
-                    if pattern.matches_path_with(path.as_path(), match_options) {
-                        continue 'entries;
+            let mut positive_builder = GlobSetBuilder::new();
+            let mut negative_builder = GlobSetBuilder::new();
+            for arg in args {
+                let mut pattern = match arg {
+                    Value::String(str) => str.to_string_lossy(),
+                    arg => {
+                        return Err(Error::FromLuaConversionError {
+                            from: arg.type_name(),
+                            to: String::from("Glob"),
+                            message: Some(String::from("Globs can only be strings")),
+                        });
                     }
+                };
+
+                let mut builder = &mut positive_builder;
+                if let Some(stripped) = pattern.strip_prefix("!") {
+                    pattern = stripped.to_string();
+                    builder = &mut negative_builder;
                 }
 
-                matched_paths.set(idx, path_str)?;
-                idx += 1;
+                let glob = GlobBuilder::new(pattern.as_str())
+                    .case_insensitive(!case_sensitive)
+                    .literal_separator(require_literal_separator)
+                    .build()
+                    .map_err(|err| Error::runtime(format!("invalid glob: {}", err)))?;
+
+                builder.add(glob);
             }
 
-            Ok(matched_paths)
+            let positive_set = positive_builder.build().map_err(|err| Error::runtime(format!("failed to build positive globset: {}", err)))?;
+            let negative_set = negative_builder.build().map_err(|err| Error::runtime(format!("failed to build negative globset: {}", err)))?;
+
+            let mut matches = Vec::new();
+            for entry in WalkDir::new(&relative_to).follow_links(false).into_iter().filter_map(walkdir::Result::ok) {
+                let path = entry.path();
+
+                let rel = match path.strip_prefix(&relative_to) {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
+
+                if positive_set.matches_all(rel) && !negative_set.is_match(rel) {
+                    matches.push(path.to_path_buf());
+                }
+            }
+
+            Ok(matches)
         })?
     })?;
     fab_table.set("def_source", {
