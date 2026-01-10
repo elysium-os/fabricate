@@ -394,13 +394,14 @@ pub fn lua_eval_config(
             let build_relative_path = PathBuf::from("git").join(&name);
             let repo_path = build_dir.join(&build_relative_path);
 
-            if exists(&repo_path)?
-                && let Some(cache) = &cache
-                && let Some(dep) = cache.git_dependencies.iter().find(|v| v.name == name)
-            {
-                if dep.url == url && dep.revision == revision {
-                    git_deps.push(GitDependency { name, url, revision });
-                    return Ok(Artifact(build_relative_path));
+            if exists(&repo_path)? {
+                if let Some(cache) = &cache {
+                    if let Some(dep) = cache.git_dependencies.iter().find(|v| v.name == name) {
+                        if dep.url == url && dep.revision == revision {
+                            git_deps.push(GitDependency { name, url, revision });
+                            return Ok(Artifact(build_relative_path));
+                        }
+                    }
                 }
 
                 println!("Git dependency `{}` outdated, updating...", name);

@@ -53,12 +53,12 @@ pub fn setup(config_file: String, build_dir: String, prefix: String, options: Ve
     let cache = FabricateCache::load(&cache_path)?;
 
     // Cleanup build directory
-    if let Some(ninja_path) = &ninja_path
-        && cache.is_some()
-    {
-        let mut cleanup_cmd = Command::new(ninja_path);
-        if let Err(err) = cleanup_cmd.arg("-C").arg(&build_dir).arg("-t").arg("cleandead").status() {
-            println!("Warning: ninja cleanup failed ({})", err);
+    if let Some(ninja_path) = &ninja_path {
+        if cache.is_some() {
+            let mut cleanup_cmd = Command::new(ninja_path);
+            if let Err(err) = cleanup_cmd.arg("-C").arg(&build_dir).arg("-t").arg("cleandead").status() {
+                println!("Warning: ninja cleanup failed ({})", err);
+            }
         }
     }
 
