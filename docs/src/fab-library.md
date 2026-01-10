@@ -12,8 +12,8 @@ Runs a glob relative to the project root and returns an array of matching path s
 | Field                         | Type       | Description                                                                                                      |
 | ----------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
 | `case_sensitive`              | `boolean`  | Override the default case-sensitive behavior.                                                                    |
-| `require_literal_separator`   | `boolean`  | If true, `*` and `?` will never match `/`.                                                                       |
-| `require_literal_leading_dot` | `boolean`  | If true, wildcards will not match files that start with `.`.                                                     |
+| `require_literal_separator`   | `boolean`  | If true, `*` and `?` will never match `s/`. This is false by default.                                            |
+| `require_literal_leading_dot` | `boolean`  | If true, wildcards will not match files that start with `.`. This is false by default.                           |
 | `excludes`                    | `string[]` | Additional glob patterns that are applied after the main glob; any match here is removed from the returned list. |
 
 ```lua
