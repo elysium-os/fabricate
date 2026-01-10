@@ -24,7 +24,7 @@ function fab.build_dir() end
 --- Retrieve the fab type of userdata.
 --- @param value userdata
 --- @return "unknown" | "source" | "rule" | "executable"
-function fab.def_source(value) end
+function fab.typeof(value) end
 
 --- Find an executable binary’s path by name.
 --- If given an absolute path, returns it if the file exists and is executable.
