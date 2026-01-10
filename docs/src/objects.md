@@ -28,14 +28,10 @@ Represents a build artifact produced during at build time.
 A rule defines how to run a command. Besides the `name` field, the important API
 is `rule:build(output, inputs, variables, implicit_inputs?)`:
 
-- `output`: Relative path (relative to the build directory) describing the logical output.
-  This ends up as the special `@OUT@` variable.
-- `inputs`: Array of `Source` or `Artifact` objects that the build depends on.
-  These also end up in the special `@IN@` variable.
-- `variables`: Table containing custom `@VAR@` values declared when the rule was
-  defined.
-- `implicit_inputs`: Optional additional sources/artifacts that should be wired
-  as implicit dependencies (dependend on but not directly used).
+- `output`: Unique name of the artifact output by this build rule. This ends up as the special `@OUT@` variable.
+- `inputs`: Array of `Source` or `Artifact` objects that the build depends on. These also end up in the special `@IN@` variable.
+- `variables`: Table containing custom `@VAR@` values declared when the rule was defined.
+- `implicit_inputs`: Optional additional sources/artifacts that should be wired as implicit dependencies (dependend on but not directly used).
 
 The method returns an `Artifact` describing the produced file.
 

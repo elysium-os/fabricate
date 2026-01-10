@@ -1,5 +1,3 @@
-#![feature(normalize_lexically)]
-
 use std::{
     fs::{copy, create_dir_all},
     path::PathBuf,

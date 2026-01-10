@@ -121,15 +121,14 @@ impl UserData for Rule {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method(
             "build",
-            |l, rule, (output, input, variables, implicit_inputs): (PathBuf, Vec<Value>, HashMap<String, String>, Option<Vec<Value>>)| {
+            |l, rule, (output, input, variables, implicit_inputs): (String, Vec<Value>, HashMap<String, String>, Option<Vec<Value>>)| {
                 let appdata = l.app_data_ref::<FabricateAppData>().unwrap();
 
-                if !output.is_relative() {
-                    return Err(Error::runtime(format!("output must be a relative path `{}`", output.to_string_lossy().to_string())));
+                if !output.chars().all(|c: char| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+                    return Err(Error::runtime(format!("output name `{}` contains invalid characters", output)));
                 }
 
-                let output = output.normalize_lexically().map_err(|_| Error::runtime("output path cannot escape the build directory"))?;
-                let output = PathBuf::from("output").join(path_to_file(output));
+                let output = PathBuf::from("output").join(output);
 
                 let inputs_to_paths = |inputs: Vec<Value>| -> Result<Vec<PathBuf>> {
                     let mut paths: Vec<PathBuf> = Vec::new();
@@ -179,14 +178,11 @@ impl UserData for Rule {
 
                     if BUILTIN_VARIABLES.contains(&key.as_str()) {
                         if key == "depfile" {
-                            let path = PathBuf::from(value);
-                            if !path.is_relative() {
-                                return Err(Error::runtime(format!("depfile must be a relative path `{}`", path.to_string_lossy().to_string())));
+                            if !value.chars().all(|c: char| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+                                return Err(Error::runtime(format!("depfile `{}` contains invalid characters", value)));
                             }
 
-                            let path = path.normalize_lexically().map_err(|_| Error::runtime("depfile path cannot escape the build directory"))?;
-
-                            value = PathBuf::from("output/depfiles").join(path_to_file(path)).to_string_lossy().to_string();
+                            value = PathBuf::from("output/depfiles").join(value).to_string_lossy().to_string();
                         }
 
                         final_variables.insert(key, value);
@@ -591,12 +587,4 @@ pub fn lua_eval_config(
     let git_deps = Rc::try_unwrap(git_deps).map_err(|_| Error::runtime("failed to collect git_deps"))?.into_inner();
 
     Ok((rules, builds, git_deps, result.install))
-}
-
-fn path_to_file(path: PathBuf) -> String {
-    let mut components = Vec::new();
-    for component in path.components() {
-        components.push(component.as_os_str().to_string_lossy().to_string().replace("_", "__"));
-    }
-    return components.join("_");
 }
