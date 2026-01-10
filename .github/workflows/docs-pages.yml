@@ -3,6 +3,7 @@ name: Fabricate Documentation CD
 on:
     push:
         branches: ["main"]
+        paths: ["docs/**"]
     workflow_dispatch:
 
 permissions:
