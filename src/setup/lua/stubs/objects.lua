@@ -19,14 +19,3 @@ Rule = {}
 --- @param implicitInputs (Source | Artifact)[]? Implicit inputs.
 --- @return Artifact
 function Rule:build(output, input, variables, implicitInputs) end
-
---- @class (exact) Executable
---- @field name string Filename of the executable.
---- @field path string Absolute path to the executable.
-Executable = {}
-
---- Invoke the executable with given arguments.
---- WARNING: This will throw a lua error if the invocation fails.
---- @vararg string
---- @return string stdout
-function Executable:invoke(...) end

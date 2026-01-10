@@ -28,7 +28,7 @@ function fab.build_dir() end
 
 --- Retrieve the fab type of userdata.
 --- @param value userdata
---- @return "unknown" | "source" | "rule" | "executable"
+--- @return "unknown" | "source" | "rule"
 function fab.typeof(value) end
 
 --- Find an executable binary’s path by name.
@@ -36,7 +36,7 @@ function fab.typeof(value) end
 --- If given a relative path, returns an absolute path to the file if it exists and is executable.
 --- If given a string without path separators, looks for a file named binary_name at each directory in $PATH and if it finds an executable file there, returns it.
 --- @param lookup string
---- @return Executable?
+--- @return string? Absolute path to the executable
 function fab.which(lookup) end
 
 --- Clones a git repository into the build directory.

@@ -11,7 +11,6 @@ use std::{
     collections::HashMap,
     fs::{exists, remove_dir_all},
     path::PathBuf,
-    process::{Command, Stdio},
     rc::Rc,
 };
 use which::which;
@@ -79,27 +78,6 @@ impl FromLua for DepStyle {
             to: String::from("DepStyle"),
             message: None,
         })
-    }
-}
-
-struct Executable(PathBuf);
-
-impl UserData for Executable {
-    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("name", |_, exec| Ok(exec.0.file_name().expect("Executable has no name??").to_string_lossy().to_string()));
-        fields.add_field_method_get("path", |_, exec| Ok(exec.0.clone()));
-    }
-
-    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("invoke", |_, exec, args: Variadic<String>| {
-            let output = Command::new(&exec.0).args(args).stdout(Stdio::piped()).stderr(Stdio::inherit()).output()?;
-
-            if !output.status.success() {
-                return Err(Error::runtime(format!("executable `{}` invocation failed", exec.0.to_string_lossy())));
-            }
-
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        });
     }
 }
 
@@ -276,7 +254,7 @@ pub fn lua_eval_config(
     fab_table.set("path_rel", {
         let project_root = project_root.clone();
         let build_dir = build_dir.clone();
-        lua.create_function(move |l, mut path: PathBuf| {
+        lua.create_function(move |_, mut path: PathBuf| {
             if path.is_relative() {
                 path = project_root.join(path);
             }
@@ -309,10 +287,6 @@ pub fn lua_eval_config(
         "typeof",
         lua.create_function(|_, v: Value| match v {
             Value::UserData(userdata) => {
-                if userdata.is::<Executable>() {
-                    return Ok("executable");
-                }
-
                 if userdata.is::<Source>() {
                     return Ok("source");
                 }
@@ -335,7 +309,7 @@ pub fn lua_eval_config(
         lua.create_function(move |_, lookup: String| match which(lookup) {
             Err(which::Error::CannotFindBinaryPath) => Ok(None),
             Err(err) => Err(Error::runtime(err)),
-            Ok(path) => Ok(Some(Executable(path))),
+            Ok(path) => Ok(Some(path)),
         })?,
     )?;
     fab_table.set(

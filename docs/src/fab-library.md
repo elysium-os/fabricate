@@ -43,7 +43,7 @@ Resolves a build directory relative path from an absolute path or a project root
 
 ## `fab.which(name)`
 
-Find an executable binary’s path by name. Returns an `Executable` userdata when the binary is found or `nil` otherwise.
+Find an executable binary’s path by name. Returns an absolute path when the binary is found or `nil` otherwise.
 
 - If given an absolute path, returns it if the file exists and is executable.
 - If given a relative path, returns an absolute path to the file if it exists and is executable.
@@ -103,5 +103,4 @@ Rules chapter.
 
 ## `fab.typeof(userdata)`
 
-A helper that inspects an arbitrary userdata value and returns
-`"executable"`, `"source"`, `"rule"`, `"artifact"`, or `"unknown"`.
+A helper that inspects an arbitrary userdata value and returns `"source"`, `"rule"`, `"artifact"`, or `"unknown"`.

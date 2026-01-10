@@ -34,16 +34,3 @@ is `rule:build(output, inputs, variables, implicit_inputs?)`:
 - `implicit_inputs`: Optional additional sources/artifacts that should be wired as implicit dependencies (dependend on but not directly used).
 
 The method returns an `Artifact` describing the produced file.
-
-## Executable
-
-| Field  | Type     | Description                           |
-| ------ | -------- | ------------------------------------- |
-| `name` | `string` | Basename of the executable.           |
-| `path` | `string` | Absolute path to the executable file. |
-
-Represents an executable installed on the system.
-
-Executables expose `exec:invoke(arg1, arg2, ...)`, a convenience wrapper that
-runs the program immediately during configuration, returns captured `stdout`, and
-propagates any non-zero exit status as a runtime error.
