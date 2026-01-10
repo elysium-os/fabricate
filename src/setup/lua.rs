@@ -438,9 +438,9 @@ pub fn lua_eval_config(
             Ok(Artifact(build_relative_path))
         })?
     })?;
-    fab_table.set(
-        "glob",
-        lua.create_function(|lua, (pattern, opts): (String, Option<Table>)| {
+    fab_table.set("glob", {
+        let project_root = project_root.clone();
+        lua.create_function(move |lua, (pattern, opts): (String, Option<Table>)| {
             let opts = match opts {
                 Some(table) => table,
                 None => lua.create_table()?,
@@ -457,7 +457,12 @@ pub fn lua_eval_config(
                 match_options.require_literal_leading_dot = require_literal_leading_dot;
             }
 
-            let paths = glob_with(pattern.as_str(), match_options).map_err(|err| Error::runtime(format!("invalid glob pattern: {}", err)))?;
+            let mut pattern = PathBuf::from(pattern);
+            if pattern.is_relative() {
+                pattern = project_root.join(pattern);
+            }
+
+            let paths = glob_with(pattern.to_string_lossy().to_string().as_str(), match_options).map_err(|err| Error::runtime(format!("invalid glob pattern: {}", err)))?;
 
             let mut exclude_patterns = Vec::new();
             if let Some(excludes) = opts.get::<Option<Table>>("excludes").context("excludes must be a table of strings")? {
@@ -468,7 +473,13 @@ pub fn lua_eval_config(
                         Some(v) => v.to_string_lossy().to_string(),
                     };
 
-                    let pattern = Pattern::new(str.as_str()).map_err(|err| Error::runtime(format!("invalid exclude glob pattern: {}", err)))?;
+                    let mut path = PathBuf::from(str);
+                    if path.is_relative() {
+                        path = project_root.join(path);
+                    }
+
+                    let pattern = Pattern::new(path.to_string_lossy().to_string().as_str()).map_err(|err| Error::runtime(format!("invalid exclude glob pattern: {}", err)))?;
+
                     exclude_patterns.push(pattern);
                 }
             }
@@ -491,8 +502,8 @@ pub fn lua_eval_config(
             }
 
             Ok(matched_paths)
-        })?,
-    )?;
+        })?
+    })?;
     fab_table.set(
         "def_source",
         lua.create_function(move |_, str: String| {
