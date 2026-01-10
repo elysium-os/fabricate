@@ -273,6 +273,30 @@ pub fn lua_eval_config(
             Ok(Value::String(l.create_string(path.to_string_lossy().to_string())?))
         })?,
     )?;
+    fab_table.set("path_rel", {
+        let project_root = project_root.clone();
+        let build_dir = build_dir.clone();
+        lua.create_function(move |l, mut path: PathBuf| {
+            if path.is_relative() {
+                path = project_root.join(path);
+            }
+
+            if !path.starts_with(&project_root) {
+                return Err(Error::runtime(format!(
+                    "path `{}` is not within the project root `{}`",
+                    path.to_string_lossy(),
+                    project_root.to_string_lossy()
+                )));
+            }
+
+            let path = match diff_paths(&path, &build_dir) {
+                None => return Err(Error::runtime(format!("failed to resolve relative path `{}`", path.to_string_lossy()))),
+                Some(path) => path,
+            };
+
+            Ok(path)
+        })?
+    })?;
     fab_table.set("project_dir", {
         let project_dir = project_root.clone();
         lua.create_function(move |l, ()| Ok(Value::String(l.create_string(project_dir.to_string_lossy().to_string())?)))?

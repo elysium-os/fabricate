@@ -13,6 +13,11 @@ function fab.glob(pattern, options) end
 --- @return string
 function fab.path_join(...) end
 
+--- Resolve a build relative path from a project root relative or absolute path.
+--- @param path string
+--- @return string
+function fab.path_rel(path) end
+
 --- Get an absolute path to the project root.
 --- @return string
 function fab.project_dir() end

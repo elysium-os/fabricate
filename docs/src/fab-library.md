@@ -37,6 +37,10 @@ Returns an absolute path to the build directory.
 Joins the provided path fragments using the host platform’s separator and
 returns the joined string. If a component is absolute, it replaces the entire path.
 
+## `fab.path_rel(path)`
+
+Resolves a build directory relative path from an absolute path or a project root relative path.
+
 ## `fab.which(name)`
 
 Find an executable binary’s path by name. Returns an `Executable` userdata when the binary is found or `nil` otherwise.
