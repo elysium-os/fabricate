@@ -4,4 +4,4 @@ Fabricate is a meta buildsystem with the purpose of giving you (the programmer) 
 
 ## Documentation
 
-The documentation can be found in the [docs/](./docs/SUMMARY.md) directory and built with mdbook. They are also built by CI and available at https://docs.elysium-os.org/fabricate.
+The documentation can be found in the [docs/](./docs/SUMMARY.md) directory and built with mdbook. They are also built by CI and available on github pages at https://elysium-os.github.io/fabricate/.
