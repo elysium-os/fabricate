@@ -593,7 +593,11 @@ pub fn lua_eval_config(
 
     lua.load(include_str!("lua/builtins.lua")).set_name("=fab_builtins").exec()?;
 
-    for m in [("lang_c", include_str!("lua/modules/lang_c.lua")), ("lang_nasm", include_str!("lua/modules/lang_nasm.lua"))] {
+    for m in [
+        ("ld", include_str!("lua/modules/ld.lua")),
+        ("lang_c", include_str!("lua/modules/lang_c.lua")),
+        ("lang_nasm", include_str!("lua/modules/lang_nasm.lua")),
+    ] {
         let name = m.0;
         let source = m.1.to_owned();
 
