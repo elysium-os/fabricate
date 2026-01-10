@@ -164,7 +164,7 @@ impl UserData for Rule {
                                 return Err(Error::runtime(format!("depfile `{}` contains invalid characters", value)));
                             }
 
-                            value = PathBuf::from("output/depfiles").join(value).to_string_lossy().to_string();
+                            value = PathBuf::from("output").join(value).to_string_lossy().to_string();
                         }
 
                         final_variables.insert(key, value);
