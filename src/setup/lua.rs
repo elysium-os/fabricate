@@ -238,6 +238,7 @@ pub fn lua_eval_config(
     let rules: Rc<RefCell<Vec<Rule>>> = Rc::new(RefCell::new(Vec::new()));
     let builds: Rc<RefCell<Vec<Build>>> = Rc::new(RefCell::new(Vec::new()));
     let git_deps: Rc<RefCell<Vec<GitDependency>>> = Rc::new(RefCell::new(Vec::new()));
+    let git_overrides: Rc<HashMap<String, String>> = Rc::new(dependency_overrides);
 
     lua.set_app_data(FabricateAppData { builds: builds.clone() });
 
@@ -260,14 +261,6 @@ pub fn lua_eval_config(
         lua.create_function(move |_, mut path: PathBuf| {
             if path.is_relative() {
                 path = project_root.join(path);
-            }
-
-            if !path.starts_with(&project_root) {
-                return Err(Error::runtime(format!(
-                    "path `{}` is not within the project root `{}`",
-                    path.to_string_lossy(),
-                    project_root.to_string_lossy()
-                )));
             }
 
             let path = match diff_paths(&path, &build_dir) {
@@ -375,6 +368,7 @@ pub fn lua_eval_config(
     fab_table.set("git", {
         let build_dir = build_dir.clone();
         let git_deps_store = Rc::clone(&git_deps);
+        let git_overrides = Rc::clone(&git_overrides);
         lua.create_function(move |_, (name, url, revision): (String, String, String)| {
             if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_' || c == '.') {
                 return Err(Error::runtime(format!("git dependency name `{}` contains invalid characters", name)));
@@ -386,7 +380,7 @@ pub fn lua_eval_config(
                 return Err(Error::runtime(format!("git dependency defined twice `{}`", name)));
             }
 
-            if let Some(dep_override) = dependency_overrides.get(&name) {
+            if let Some(dep_override) = git_overrides.get(&name) {
                 git_deps.push(GitDependency { name, url, revision });
                 return Ok(Artifact(PathBuf::from(dep_override)));
             }
@@ -506,15 +500,25 @@ pub fn lua_eval_config(
             Ok(matched_paths)
         })?
     })?;
-    fab_table.set(
-        "def_source",
+    fab_table.set("def_source", {
+        let git_overrides = Rc::clone(&git_overrides);
         lua.create_function(move |_, str: String| {
             let full_path = project_root
                 .join(&str)
                 .canonicalize()
                 .map_err(|err| Error::runtime(format!("failed to resolve source path `{}`: {}", str, err)))?;
 
-            if !full_path.starts_with(&project_root) {
+            let mut found_in_dep = false;
+            for (_, v) in git_overrides.iter() {
+                if !full_path.starts_with(v) {
+                    continue;
+                }
+
+                found_in_dep = true;
+                break;
+            }
+
+            if !found_in_dep && !full_path.starts_with(&project_root) {
                 return Err(Error::runtime(format!(
                     "source `{}` is not within the project root `{}`",
                     full_path.to_string_lossy(),
@@ -530,8 +534,8 @@ pub fn lua_eval_config(
             };
 
             Ok(Source(path))
-        })?,
-    )?;
+        })?
+    })?;
     fab_table.set("def_rule", {
         let rule_store = Rc::clone(&rules);
         lua.create_function(move |_, (name, command, description, depstyle, build_compdb): (String, String, _, _, _)| {
