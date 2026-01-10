@@ -6,6 +6,15 @@ function table.print(t)
     end
 end
 
+--- Add all of the values of other into the table.
+--- @param t table
+--- @param other table
+function table.extend(t, other)
+    for _, v in ipairs(other) do
+        table.insert(t, v)
+    end
+end
+
 --- Join a table of strings by separator.
 --- @param t string[]
 --- @param separator string
