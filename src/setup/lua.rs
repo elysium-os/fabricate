@@ -63,6 +63,10 @@ pub enum DepStyle {
 
 impl FromLua for DepStyle {
     fn from_lua(value: mlua::Value, _: &Lua) -> Result<Self> {
+        if let Value::Nil = value {
+            return Ok(DepStyle::Normal);
+        }
+
         if let Value::String(value) = &value {
             return match value.to_string_lossy().as_str() {
                 "normal" => Ok(DepStyle::Normal),
@@ -238,7 +242,6 @@ pub fn lua_eval_config(
     lua.set_app_data(FabricateAppData { builds: builds.clone() });
 
     lua.load(include_str!("lua/generic.lua")).set_name("=fab_generic").exec()?;
-    lua.load(include_str!("lua/builtins.lua")).set_name("=fab_builtins").exec()?;
 
     let fab_table = lua.create_table()?;
     fab_table.set(
@@ -586,6 +589,17 @@ pub fn lua_eval_config(
     })?;
 
     lua.globals().set("fab", fab_table)?;
+
+    lua.load(include_str!("lua/builtins.lua")).set_name("=fab_builtins").exec()?;
+
+    for m in [("lang_c", include_str!("lua/modules/lang_c.lua")), ("lang_nasm", include_str!("lua/modules/lang_nasm.lua"))] {
+        let name = m.0;
+        let source = m.1.to_owned();
+
+        let loader = lua.create_function(move |l, ()| l.load(&source).set_name(&format!("={}", name)).eval::<mlua::Value>())?;
+
+        lua.preload_module(name, loader)?;
+    }
 
     let result = lua.load(config_path).eval::<ConfigResult>()?;
 
