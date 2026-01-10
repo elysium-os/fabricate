@@ -1,6 +1,6 @@
 use std::{
     fs::{copy, create_dir_all},
-    path::PathBuf,
+    path::{Component, PathBuf},
     process::Command,
 };
 
@@ -85,7 +85,17 @@ fn main() -> Result<()> {
                 let mut abs_dest = PathBuf::from(&cache.prefix).join(&dest);
 
                 if let Some(dest_dir) = &install_opts.dest_dir {
-                    abs_dest = PathBuf::from(dest_dir).join(abs_dest)
+                    let mut joined = PathBuf::from(dest_dir);
+
+                    for c in abs_dest.components() {
+                        match c {
+                            Component::Prefix(_) | Component::RootDir | Component::CurDir => {}
+                            Component::ParentDir => joined.push(".."),
+                            Component::Normal(part) => joined.push(part),
+                        }
+                    }
+
+                    abs_dest = joined;
                 }
 
                 if !abs_src.exists() {
@@ -101,9 +111,9 @@ fn main() -> Result<()> {
                     Some(path) => path,
                 };
 
-                create_dir_all(dest_dir).with_context(|| format!("Unable to install artifact `{}`, could not create dest dir", src.to_string_lossy()))?;
+                create_dir_all(dest_dir).with_context(|| format!("Unable to install artifact `{}`, could not create dest dir `{}`", src.to_string_lossy(), dest_dir.to_string_lossy()))?;
 
-                copy(&src, abs_dest).with_context(|| format!("Unable to install artifact `{}`, could not copy", src.to_string_lossy()))?;
+                copy(&src, &abs_dest).with_context(|| format!("Unable to install artifact `{}` to `{}`, could not copy", src.to_string_lossy(), abs_dest.to_string_lossy()))?;
             }
         }
     }
