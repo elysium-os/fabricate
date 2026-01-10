@@ -1,9 +1,12 @@
 --- @meta
 
 --- @class (exact) Source
---- @field rel_path string Relative (to the project root) path to the source file.
---- @field abs_path string Absolute path to the source file.
+--- @field path string Relative (to the build directory) path to the source file.
 Source = {}
+
+--- @class (exact) Artifact
+--- @field path string Relative (to the build directory) path to the artifact.
+Artifact = {}
 
 --- @class (exact) Rule
 --- @field name string Rule name (unique).
@@ -27,8 +30,3 @@ Executable = {}
 --- @vararg string
 --- @return string stdout
 function Executable:invoke(...) end
-
---- @class (exact) Artifact
---- @field rel_path string Relative (to the build directory) path to the artifact.
---- @field abs_path string Absolute path to the artifact.
-Artifact = {}

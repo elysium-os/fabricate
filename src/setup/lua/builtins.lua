@@ -1,7 +1,7 @@
 --- Collect paths and generate a list of sources.
 --- @vararg string | string[]
 --- @return Source[]
-function Sources(...)
+function sources(...)
     local collect = {}
 
     local function checked_insert(v)

@@ -13,6 +13,14 @@ function fab.glob(pattern, options) end
 --- @return string
 function fab.path_join(...) end
 
+--- Get an absolute path to the project root.
+--- @return string
+function fab.project_dir() end
+
+--- Get an absolute path to the build directory.
+--- @return string
+function fab.build_dir() end
+
 --- Retrieve the fab type of userdata.
 --- @param value userdata
 --- @return "unknown" | "source" | "rule" | "executable"
@@ -36,9 +44,9 @@ function fab.git(name, url, revision) end
 --- Declare an option that can be passed by the user to fabricate.
 --- @param name string
 --- @param type "string" | "number" | "boolean" | string[]
---- @param optional boolean?
+--- @param required boolean?
 --- @return string | number | boolean | nil
-function fab.option(name, type, optional) end
+function fab.option(name, type, required) end
 
 --- Define a [Source](lua://Source).
 --- @param path string

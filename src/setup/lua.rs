@@ -19,8 +19,6 @@ use which::which;
 use crate::cache::{FabricateCache, GitDependency};
 
 struct FabricateAppData {
-    source_dir: PathBuf,
-    build_dir: PathBuf,
     builds: Rc<RefCell<Vec<Build>>>,
 }
 
@@ -88,7 +86,7 @@ struct Executable(PathBuf);
 
 impl UserData for Executable {
     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("name", |_, exec| Ok(exec.0.file_name().unwrap().to_string_lossy().to_string()));
+        fields.add_field_method_get("name", |_, exec| Ok(exec.0.file_name().expect("Executable has no name??").to_string_lossy().to_string()));
         fields.add_field_method_get("path", |_, exec| Ok(exec.0.clone()));
     }
 
@@ -158,28 +156,16 @@ impl UserData for Rule {
                             path = Some(userdata.borrow::<Artifact>()?.0.clone());
                         }
 
-                        let path = match path {
-                            None => {
-                                return Err(Error::FromLuaConversionError {
-                                    from: input.type_name(),
-                                    to: String::from("Source or Artifact"),
-                                    message: None,
-                                });
-                            }
-                            Some(path) => appdata.source_dir.join(path),
-                        };
+                        if let Some(path) = path {
+                            paths.push(path);
+                            continue;
+                        }
 
-                        let path = match diff_paths(&path, &appdata.build_dir) {
-                            None => {
-                                return Err(Error::runtime(format!(
-                                    "failed to resolve relative path to build dir for input `{}`",
-                                    path.to_string_lossy().to_string()
-                                )));
-                            }
-                            Some(path) => path,
-                        };
-
-                        paths.push(path);
+                        return Err(Error::FromLuaConversionError {
+                            from: input.type_name(),
+                            to: String::from("Source or Artifact"),
+                            message: None,
+                        });
                     }
 
                     Ok(paths)
@@ -238,8 +224,7 @@ struct Source(PathBuf);
 
 impl UserData for Source {
     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("rel_path", |_, source| Ok(source.0.clone()));
-        fields.add_field_method_get("abs_path", |l, source| Ok(l.app_data_ref::<FabricateAppData>().unwrap().source_dir.join(&source.0)));
+        fields.add_field_method_get("path", |_, source| Ok(source.0.clone()));
     }
 }
 
@@ -247,8 +232,7 @@ struct Artifact(PathBuf);
 
 impl UserData for Artifact {
     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("rel_path", |_, artifact| Ok(artifact.0.clone()));
-        fields.add_field_method_get("abs_path", |l, artifact| Ok(l.app_data_ref::<FabricateAppData>().unwrap().source_dir.join(&artifact.0)));
+        fields.add_field_method_get("path", |_, artifact| Ok(artifact.0.clone()));
     }
 }
 
@@ -264,7 +248,7 @@ const BUILTIN_VARIABLES: &'static [&'static str] = &["depfile"];
 const RESERVED_VARIABLES: &'static [&'static str] = &["in", "out"];
 
 pub fn lua_eval_config(
-    source_dir: PathBuf,
+    project_root: PathBuf,
     build_dir: PathBuf,
     config_path: PathBuf,
     options: HashMap<String, String>,
@@ -277,11 +261,7 @@ pub fn lua_eval_config(
     let builds: Rc<RefCell<Vec<Build>>> = Rc::new(RefCell::new(Vec::new()));
     let git_deps: Rc<RefCell<Vec<GitDependency>>> = Rc::new(RefCell::new(Vec::new()));
 
-    lua.set_app_data(FabricateAppData {
-        source_dir: source_dir.clone(),
-        build_dir: build_dir.clone(),
-        builds: builds.clone(),
-    });
+    lua.set_app_data(FabricateAppData { builds: builds.clone() });
 
     lua.load(include_str!("lua/generic.lua")).set_name("=fab_generic").exec()?;
     lua.load(include_str!("lua/builtins.lua")).set_name("=fab_builtins").exec()?;
@@ -297,9 +277,9 @@ pub fn lua_eval_config(
             Ok(Value::String(l.create_string(path.to_string_lossy().to_string())?))
         })?,
     )?;
-    fab_table.set("source_dir", {
-        let source_dir = source_dir.clone();
-        lua.create_function(move |l, ()| Ok(Value::String(l.create_string(source_dir.to_string_lossy().to_string())?)))?
+    fab_table.set("project_dir", {
+        let project_dir = project_root.clone();
+        lua.create_function(move |l, ()| Ok(Value::String(l.create_string(project_dir.to_string_lossy().to_string())?)))?
     })?;
     fab_table.set("build_dir", {
         let build_dir = build_dir.clone();
@@ -332,7 +312,7 @@ pub fn lua_eval_config(
     )?;
     fab_table.set(
         "which",
-        lua.create_function(|_, lookup: String| match which(lookup) {
+        lua.create_function(move |_, lookup: String| match which(lookup) {
             Err(which::Error::CannotFindBinaryPath) => Ok(None),
             Err(err) => Err(Error::runtime(err)),
             Ok(path) => Ok(Some(Executable(path))),
@@ -340,17 +320,17 @@ pub fn lua_eval_config(
     )?;
     fab_table.set(
         "option",
-        lua.create_function(move |l, (name, option_type, optional): (String, Value, bool)| {
+        lua.create_function(move |l, (name, option_type, required): (String, Value, bool)| {
             if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_') {
                 return Err(Error::runtime(format!("option name `{}` contains invalid characters", name)));
             }
 
             let value = match options.get(&name) {
                 None => {
-                    if optional {
-                        return Ok(Value::Nil);
+                    if required {
+                        return Err(Error::runtime(format!("option `{}` is missing", name)));
                     }
-                    return Err(Error::runtime(format!("option `{}` is missing", name)));
+                    return Ok(Value::Nil);
                 }
                 Some(value) => value,
             };
@@ -396,6 +376,7 @@ pub fn lua_eval_config(
         })?,
     )?;
     fab_table.set("git", {
+        let build_dir = build_dir.clone();
         let git_deps_store = Rc::clone(&git_deps);
         lua.create_function(move |_, (name, url, revision): (String, String, String)| {
             if !name.chars().all(|c: char| c.is_alphabetic() || c == '-' || c == '_' || c == '.') {
@@ -519,19 +500,27 @@ pub fn lua_eval_config(
     fab_table.set(
         "def_source",
         lua.create_function(move |_, str: String| {
-            let full_path = PathBuf::from(&str)
+            let full_path = project_root
+                .join(&str)
                 .canonicalize()
                 .map_err(|err| Error::runtime(format!("failed to resolve source path `{}`: {}", str, err)))?;
 
-            let relative_path = full_path.strip_prefix(&source_dir).map_err(|_| {
-                Error::runtime(format!(
-                    "source path `{}` is not within the source directory `{}`",
+            if !full_path.starts_with(&project_root) {
+                return Err(Error::runtime(format!(
+                    "source `{}` is not within the project root `{}`",
                     full_path.to_string_lossy(),
-                    source_dir.to_string_lossy()
-                ))
-            })?;
+                    project_root.to_string_lossy()
+                )));
+            }
 
-            Ok(Source(relative_path.to_path_buf()))
+            let path = match diff_paths(full_path, &build_dir) {
+                None => {
+                    return Err(Error::runtime(format!("failed to resolve relative path to build dir for source `{}`", &str)));
+                }
+                Some(path) => path,
+            };
+
+            Ok(Source(path))
         })?,
     )?;
     fab_table.set("def_rule", {

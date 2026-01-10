@@ -2,6 +2,7 @@
 
 Fabricate evaluates a single Lua file (by default `fab.lua`). The configuration is written in Lua (Lua 5.4).
 Many of the standard lua functions and libraries are available.
+Note that the lua environment is **NOT** sandboxed meaning a build script can run arbitrary commands even at setup time.
 
 ## Install Artifacts
 

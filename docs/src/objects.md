@@ -5,21 +5,19 @@ with fields/methods. Fabricate uses them to collect build graph information.
 
 ## Source
 
-Represents an input file inside the source directory.
+| Field  | Type     | Description                           |
+| ------ | -------- | ------------------------------------- |
+| `path` | `string` | Path relative to the build directory. |
 
-| Field      | Type     | Description                            |
-| ---------- | -------- | -------------------------------------- |
-| `rel_path` | `string` | Path relative to the source directory. |
-| `abs_path` | `string` | Absolute path pointing at the source.  |
+Represents an input file inside the project root. Must exist at setup time.
 
 ## Artifact
 
-Represents a build artifact produced during at build time.
+| Field  | Type     | Description                           |
+| ------ | -------- | ------------------------------------- |
+| `path` | `string` | Path relative to the build directory. |
 
-| Field      | Type     | Description                             |
-| ---------- | -------- | --------------------------------------- |
-| `rel_path` | `string` | Path relative to the build directory.   |
-| `abs_path` | `string` | Absolute path pointing at the artifact. |
+Represents a build artifact produced during at build time.
 
 ## Rule
 
@@ -43,13 +41,13 @@ The method returns an `Artifact` describing the produced file.
 
 ## Executable
 
-Returned by `fab.which`. Available fields:
-
 | Field  | Type     | Description                           |
 | ------ | -------- | ------------------------------------- |
 | `name` | `string` | Basename of the executable.           |
 | `path` | `string` | Absolute path to the executable file. |
 
+Represents an executable installed on the system.
+
 Executables expose `exec:invoke(arg1, arg2, ...)`, a convenience wrapper that
 runs the program immediately during configuration, returns captured `stdout`, and
-propagates any non-zero exit status as a Lua error.
+propagates any non-zero exit status as a runtime error.

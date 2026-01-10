@@ -24,9 +24,9 @@ local c_files = fab.glob("src/**/*.c", {
 })
 ```
 
-## `fab.source_dir()`
+## `fab.project_dir()`
 
-Returns an absolute path to the source directory.
+Returns an absolute path to the project root.
 
 ## `fab.build_dir()`
 
@@ -45,7 +45,7 @@ Find an executable binary’s path by name. Returns an `Executable` userdata whe
 - If given a relative path, returns an absolute path to the file if it exists and is executable.
 - If given a string without path separators, looks for a file named binary_name at each directory in `$PATH` and if it finds an executable file there, returns it.
 
-## `fab.option(name, type, optional)`
+## `fab.option(name, type, required)`
 
 Declares a user option that can be provided on the CLI via
 `--option name=value`. The `type` argument controls validation:
@@ -55,7 +55,7 @@ Declares a user option that can be provided on the CLI via
 - A table of allowed strings works as an enum (Fabricate checks that the CLI
   value matches one of the table entries and returns the matching value).
 
-If `optional` is true the option may be omitted and `nil` is returned. Otherwise
+If `required` is false or omitted the option may be omitted and `nil` is returned. Otherwise
 Fabricate raises a setup-time error if the option is missing.
 
 ```lua

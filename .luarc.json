@@ -1,5 +1,5 @@
 {
     "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
-    "workspace.library": ["src/configure/lua"],
+    "workspace.library": ["src/setup/lua"],
     "runtime.version": "Lua 5.4"
 }

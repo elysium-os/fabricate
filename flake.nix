@@ -6,7 +6,6 @@
 
     outputs =
         {
-            self,
             nixpkgs,
             flake-utils,
             ...
@@ -19,29 +18,14 @@
             {
                 devShells.default = pkgs.mkShell {
                     shellHook = "export NIX_SHELL_NAME='fabricate'";
-                    buildInputs = with pkgs; [
+                    nativeBuildInputs = with pkgs; [
                         rustup
                         mdbook
-                        pkg-config
                     ];
-                    nativeBuildInputs = with pkgs; [
+                    buildInputs = with pkgs; [
                         openssl
                         ninja
                     ];
-                };
-
-                defaultPackage = pkgs.rustPlatform.buildRustPackage {
-                    name = "fabricate";
-                    src = self;
-
-                    cargoLock.lockFile = ./Cargo.lock;
-
-                    meta = {
-                        description = "Simple yet powerful meta buildsystem.";
-                        homepage = "https://github.com/elysium-os/fabricate";
-                        license = pkgs.lib.licenses.bsd3;
-                        maintainers = with pkgs.lib.maintainers; [ wux ];
-                    };
                 };
             }
         );
