@@ -1,7 +1,9 @@
 use crate::setup::lua::{Build, DepStyle, Rule};
 
-fn ninja_escape(mut str: String) -> String {
-    str = str.replace("$", "$$");
+fn ninja_escape(mut str: String, escape_var: bool) -> String {
+    if escape_var {
+        str = str.replace("$", "$$");
+    }
     str = str.replace(" ", "$ ");
     str = str.replace(":", "$:");
     str = str.replace("\n", "$\n");
@@ -17,11 +19,11 @@ pub fn build_ninja_file(rules: &Vec<Rule>, builds: &Vec<Build>) -> String {
 
     ninja_data.push_str("# Rules\n");
     for rule in rules {
-        ninja_data.push_str(format!("rule {}\n", ninja_escape(rule.name.clone())).as_str());
-        ninja_data.push_str(format!("    command = {}\n", rule.command.clone()).as_str());
+        ninja_data.push_str(format!("rule {}\n", ninja_escape(rule.name.clone(), true)).as_str());
+        ninja_data.push_str(format!("    command = {}\n", ninja_escape(rule.command.clone(), false)).as_str());
 
         if let Some(description) = rule.description.as_ref() {
-            ninja_data.push_str(format!("    description = {}\n", ninja_escape(description.clone())).as_str());
+            ninja_data.push_str(format!("    description = {}\n", ninja_escape(description.clone(), false)).as_str());
         }
 
         match rule.depstyle {
@@ -35,18 +37,18 @@ pub fn build_ninja_file(rules: &Vec<Rule>, builds: &Vec<Build>) -> String {
 
     ninja_data.push_str("# Build Statements\n");
     for build in builds {
-        let output = ninja_escape(build.output.to_string_lossy().to_string());
-        let inputs: Vec<String> = build.input.iter().map(|i| ninja_escape(i.to_string_lossy().to_string())).collect();
+        let output = ninja_escape(build.output.to_string_lossy().to_string(), true);
+        let inputs: Vec<String> = build.input.iter().map(|i| ninja_escape(i.to_string_lossy().to_string(), true)).collect();
         ninja_data.push_str(format!("build {}: {} {}", output, build.rule, inputs.join(" ")).as_str());
 
         if let Some(implicit_inputs) = build.implicit_inputs.as_ref() {
-            let implicit_inputs: Vec<String> = implicit_inputs.iter().map(|i| ninja_escape(i.to_string_lossy().to_string())).collect();
+            let implicit_inputs: Vec<String> = implicit_inputs.iter().map(|i| ninja_escape(i.to_string_lossy().to_string(), true)).collect();
             ninja_data.push_str(format!(" | {}", implicit_inputs.join(" ")).as_str());
         }
         ninja_data.push('\n');
 
         for (k, v) in build.variables.iter() {
-            ninja_data.push_str(format!("    {} = {}\n", k, ninja_escape(v.clone())).as_str());
+            ninja_data.push_str(format!("    {} = {}\n", k, ninja_escape(v.clone(), true)).as_str());
         }
 
         ninja_data.push('\n');
