@@ -15,10 +15,23 @@ local function get_linker_generic(linker_type, path)
     --- @param output string
     --- @param objects (Source | Artifact)[]
     --- @param args string[]
+    --- @param linker_script (Source | Artifact)?
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact
-    function Linker:link(output, objects, args, implicit_inputs)
-        return self.rule:build(output, objects, { args = table.join(args or {}, " ") }, implicit_inputs)
+    function Linker:link(output, objects, args, linker_script, implicit_inputs)
+        local implicits = {}
+        local args_str = table.join(args or {}, " ")
+
+        if linker_script ~= nil then
+            table.insert(implicits, linker_script)
+            args_str = args_str .. " -T" .. linker_script.path
+        end
+
+        if implicit_inputs ~= nil then
+            table.extend(implicits, implicit_inputs)
+        end
+
+        return self.rule:build(output, objects, { args = args_str }, implicits)
     end
 
     return Linker
