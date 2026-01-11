@@ -58,7 +58,7 @@ local function get_gnu_compiler(compiler_type, path)
 
         if linker_script ~= nil then
             table.insert(implicits, linker_script)
-            args_str = args_str .. "-T" .. linker_script.path
+            args_str = args_str .. " -T" .. linker_script.path
         end
 
         if implicit_inputs ~= nil then
