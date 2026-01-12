@@ -436,6 +436,7 @@ pub fn lua_eval_config(
         })?
     })?;
     fab_table.set("glob", {
+        let build_dir = build_dir.clone();
         let project_root = project_root.clone();
         lua.create_function(move |_, mut args: Variadic<Value>| {
             let opts: Option<Table> = match args.last() {
@@ -463,7 +464,11 @@ pub fn lua_eval_config(
                 }
 
                 if let Some(value) = opts.get::<Option<PathBuf>>("relative_to").context("relative_to must be a string")? {
-                    relative_to = value;
+                    if value.is_absolute() {
+                        relative_to = value;
+                    } else {
+                        relative_to = build_dir.join(value);
+                    }
                 }
             }
 
