@@ -522,7 +522,9 @@ pub fn lua_eval_config(
         })?
     })?;
     fab_table.set("def_source", {
+        let build_dir = build_dir.clone();
         let git_overrides = Rc::clone(&git_overrides);
+        let git_deps = Rc::clone(&git_deps);
         lua.create_function(move |_, str: String| {
             let full_path = project_root
                 .join(&str)
@@ -530,13 +532,25 @@ pub fn lua_eval_config(
                 .map_err(|err| Error::runtime(format!("failed to resolve source path `{}`: {}", str, err)))?;
 
             let mut found_in_dep = false;
-            for (_, v) in git_overrides.iter() {
-                if !full_path.starts_with(v) {
+            for dep in git_deps.borrow().iter() {
+                let dep_path = build_dir.join("git").join(&dep.name);
+                if !full_path.starts_with(dep_path) {
                     continue;
                 }
 
                 found_in_dep = true;
                 break;
+            }
+
+            if !found_in_dep {
+                for (_, v) in git_overrides.iter() {
+                    if !full_path.starts_with(v) {
+                        continue;
+                    }
+
+                    found_in_dep = true;
+                    break;
+                }
             }
 
             if !found_in_dep && !full_path.starts_with(&project_root) {
