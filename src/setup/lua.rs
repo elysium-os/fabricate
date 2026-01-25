@@ -525,6 +525,7 @@ pub fn lua_eval_config(
         let build_dir = build_dir.clone();
         let git_overrides = Rc::clone(&git_overrides);
         let git_deps = Rc::clone(&git_deps);
+        let project_root = project_root.clone();
         lua.create_function(move |_, str: String| {
             let full_path = project_root
                 .join(&str)
@@ -628,7 +629,8 @@ pub fn lua_eval_config(
         })?
     })?;
 
-    lua.globals().set("fab", fab_table)?;
+    let globals = lua.globals();
+    globals.set("fab", fab_table)?;
 
     lua.load(include_str!("lua/builtins.lua")).set_name("=fab_builtins").exec()?;
 
@@ -644,6 +646,9 @@ pub fn lua_eval_config(
 
         lua.preload_module(name, loader)?;
     }
+
+    let package = globals.get::<Table>("package")?;
+    package.set("path", format!("{};{}/?/fab.lua", package.get::<String>("path")?, project_root.to_string_lossy().to_string()))?;
 
     let result = lua.load(config_path).eval::<ConfigResult>()?;
 
