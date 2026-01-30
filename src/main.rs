@@ -16,7 +16,7 @@ mod setup;
 #[derive(Parser)]
 #[command(version, next_line_help = true)]
 struct FabricateOptions {
-    #[arg(short, long, help = "path to build directory", default_value = "build")]
+    #[arg(short, long, help = "path to build directory", default_value = "build", global = true)]
     build_dir: String,
 
     #[command(subcommand)]
