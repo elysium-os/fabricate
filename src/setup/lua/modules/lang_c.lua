@@ -28,8 +28,8 @@ local function get_gnu_compiler(compiler_type, path)
     --- Compile source file into an object file.
     --- @param artifact string
     --- @param source Source
-    --- @param include_dirs CIncludeDir[]
-    --- @param args string[]
+    --- @param include_dirs CIncludeDir[]?
+    --- @param args string[]?
     --- @param depfile string?
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact
@@ -40,7 +40,7 @@ local function get_gnu_compiler(compiler_type, path)
         end
 
         return self.compile_rule:build(artifact, { source }, {
-            args = table.join(args, " ") .. " " .. table.join(include_args, " "),
+            args = table.join(args or {}, " ") .. " " .. table.join(include_args, " "),
             depfile = depfile or artifact .. ".d"
         }, implicit_inputs)
     end
@@ -48,7 +48,7 @@ local function get_gnu_compiler(compiler_type, path)
     --- Use the compiler to link object files together.
     --- @param artifact string
     --- @param objects (Source | Artifact)[]
-    --- @param args string[]
+    --- @param args string[]?
     --- @param linker_script (Source | Artifact)?
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact
@@ -70,8 +70,8 @@ local function get_gnu_compiler(compiler_type, path)
 
     --- Compile source files into separate object files.
     --- @param sources Source[]
-    --- @param args string[]
-    --- @param include_dirs CIncludeDir[]
+    --- @param args string[]?
+    --- @param include_dirs CIncludeDir[]?
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact[]
     function CCompiler:generate(sources, args, include_dirs, implicit_inputs)
@@ -87,12 +87,13 @@ local function get_gnu_compiler(compiler_type, path)
     --- Use the compiler to compiler and link source files.
     --- @param artifact string
     --- @param sources Source[]
-    --- @param args string[]
-    --- @param include_dirs CIncludeDir[]
+    --- @param args string[]?
+    --- @param include_dirs CIncludeDir[]?
+    --- @param linker_script (Source | Artifact)?
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact
-    function CCompiler:compile(artifact, sources, args, include_dirs, implicit_inputs)
-        return self:link(artifact, self:generate(sources, args or {}, include_dirs), args or {}, implicit_inputs)
+    function CCompiler:compile(artifact, sources, args, include_dirs, linker_script, implicit_inputs)
+        return self:link(artifact, self:generate(sources, args or {}, include_dirs), args or {}, linker_script, implicit_inputs)
     end
 
     setmetatable(CCompiler, {
