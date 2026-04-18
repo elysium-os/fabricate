@@ -636,6 +636,7 @@ pub fn lua_eval_config(
 
     for m in [
         ("ld", include_str!("lua/modules/ld.lua")),
+        ("ar", include_str!("lua/modules/ar.lua")),
         ("lang_c", include_str!("lua/modules/lang_c.lua")),
         ("lang_nasm", include_str!("lua/modules/lang_nasm.lua")),
     ] {
