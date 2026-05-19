@@ -37,7 +37,7 @@ enum MainCommand {
 
 #[derive(Args)]
 struct SetupOpts {
-    #[arg(long, help = "Installation prefix (default: /usr)", default_value = "fab.lua")]
+    #[arg(long, help = "Installation prefix (default: /usr)", default_value = "/usr")]
     prefix: String,
 
     #[arg(long, help = "Fabricate configuration file path (default: fab.lua)", default_value = "fab.lua")]
