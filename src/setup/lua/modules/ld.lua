@@ -1,12 +1,14 @@
 local mod = {}
 
 local function get_linker_generic(linker_type, path)
+    local escaped_path = path:gsub("@", "@@")
+
     --- @class Linker
     --- @field rule Rule
     local Linker = {
         rule = fab.def_rule(
             "linker_" .. linker_type .. "_link",
-            path .. " -o @OUT@ @ARGS@ @IN@",
+            escaped_path .. " -o @OUT@ @ARGS@ @IN@",
             "Linking @IN@ to @OUT@"
         )
     }

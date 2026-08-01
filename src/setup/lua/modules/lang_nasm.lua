@@ -10,6 +10,8 @@ function mod.get_nasm(path)
         return nil
     end
 
+    local escaped_path = path:gsub("@", "@@")
+
     --- @class NASM
     --- @field name string
     --- @field rule Rule
@@ -17,7 +19,7 @@ function mod.get_nasm(path)
         name = "nasm",
         rule = fab.def_rule(
             "assembler_nasm_assemble",
-            path .. " @ARGS@ -MD @DEPFILE@ -MQ @OUT@ -o @OUT@ @IN@",
+            escaped_path .. " @ARGS@ -MD @DEPFILE@ -MQ @OUT@ -o @OUT@ @IN@",
             "Assembling @IN@ from @OUT@",
             "gcc",
             true

@@ -5,7 +5,6 @@ use git2::{
 use globset::{GlobBuilder, GlobSetBuilder};
 use mlua::{Error, ErrorContext, FromLua, Lua, Result, Table, UserData, UserDataRef, Value, Variadic};
 use pathdiff::diff_paths;
-use regex::{Captures, Regex};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -17,6 +16,62 @@ use walkdir::WalkDir;
 use which::which;
 
 use crate::cache::{FabricateCache, GitDependency};
+
+fn substitute_vars(input: &str, resolve: impl Fn(&str) -> String) -> String {
+    let mut output = String::with_capacity(input.len());
+
+    enum State {
+        Normal,
+        Ident(String),
+    }
+
+    let mut state = State::Normal;
+
+    let mut chars = input.chars();
+    while let Some(c) = chars.next() {
+        match state {
+            State::Normal => {
+                if c == '@' {
+                    state = State::Ident(String::new());
+                    continue;
+                }
+
+                output.push(c);
+            }
+            State::Ident(ident) => {
+                if c == '_' || c.is_ascii_alphanumeric() {
+                    let mut new_ident = ident.clone();
+                    new_ident.push(c);
+                    state = State::Ident(new_ident);
+                    continue;
+                }
+
+                state = State::Normal;
+
+                if c == '@' {
+                    if ident.len() == 0 {
+                        output.push('@');
+                        continue;
+                    }
+
+                    output.push_str(&resolve(&ident));
+                    continue;
+                }
+
+                output.push('@');
+                output.push_str(&ident);
+                output.push(c);
+            }
+        };
+    }
+
+    if let State::Ident(ident) = state {
+        output.push('@');
+        output.push_str(&ident);
+    }
+
+    output
+}
 
 struct FabricateAppData {
     builds: Rc<RefCell<Vec<Build>>>,
@@ -584,26 +639,23 @@ pub fn lua_eval_config(
             }
 
             let variables = RefCell::new(Vec::new());
-            let var_parse = |capture: &Captures| {
-                let (_, [var]) = capture.extract();
+            let var_resolve = |name: &str| {
+                let name = name.to_lowercase();
 
-                let var = var.to_lowercase();
-
-                if RESERVED_VARIABLES.contains(&var.as_str()) || BUILTIN_VARIABLES.contains(&var.as_str()) {
-                    return format!("${}", var);
+                if RESERVED_VARIABLES.contains(&name.as_str()) || BUILTIN_VARIABLES.contains(&name.as_str()) {
+                    return format!("${}", name);
                 }
 
-                variables.borrow_mut().push(var.clone());
+                variables.borrow_mut().push(name.clone());
 
-                return format!("$fabvar_{}", var);
+                format!("$fabvar_{}", name)
             };
 
-            let var_regex = Regex::new(r"@(.+?)@").map_err(|err| Error::runtime(err))?;
-            let command = var_regex.replace_all(&command, &var_parse).to_string();
+            let command = substitute_vars(&command, var_resolve);
 
             let mut description: Option<String> = description;
             if let Some(desc) = description {
-                description = Some(var_regex.replace_all(&desc.to_string(), &var_parse).to_string());
+                description = Some(substitute_vars(&desc, var_resolve));
             }
 
             if name.starts_with("fab_") {

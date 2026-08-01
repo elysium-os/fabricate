@@ -7,20 +7,22 @@ local function get_gnu_compiler(compiler_type, path)
         return nil
     end
 
+    local escaped_path = path:gsub("@", "@@")
+
     --- @class CCompiler
     --- @field compile_rule Rule
     --- @field link_rule Rule
     local CCompiler = {
         compile_rule = fab.def_rule(
             "compiler_" .. compiler_type .. "_compile",
-            path .. " -MD -MF @DEPFILE@ -MQ @OUT@ @ARGS@ -c -o @OUT@ @IN@",
+            escaped_path .. " -MD -MF @DEPFILE@ -MQ @OUT@ @ARGS@ -c -o @OUT@ @IN@",
             "Compiling C object @OUT@ from @IN@",
             compiler_type,
             true
         ),
         link_rule = fab.def_rule(
             "compiler_" .. compiler_type .. "_link",
-            path .. " @ARGS@ -o @OUT@ @IN@",
+            escaped_path .. " @ARGS@ -o @OUT@ @IN@",
             "Linking C objects @IN@ to @OUT@"
         )
     }
@@ -93,7 +95,8 @@ local function get_gnu_compiler(compiler_type, path)
     --- @param implicit_inputs (Source | Artifact)[]?
     --- @return Artifact
     function CCompiler:compile(artifact, sources, args, include_dirs, linker_script, implicit_inputs)
-        return self:link(artifact, self:generate(sources, args or {}, include_dirs), args or {}, linker_script, implicit_inputs)
+        return self:link(artifact, self:generate(sources, args or {}, include_dirs), args or {}, linker_script,
+            implicit_inputs)
     end
 
     setmetatable(CCompiler, {

@@ -1,12 +1,14 @@
 local mod = {}
 
 local function get_ar_generic(ar_type, path)
+    local escaped_path = path:gsub("@", "@@")
+
     --- @class Ar
     --- @field rule Rule
     local Ar = {
         create_rule = fab.def_rule(
             "ar_" .. ar_type .. "_create",
-            path .. " rcs @OUT@ @IN@",
+            escaped_path .. " rcs @OUT@ @IN@",
             "Creating archive @OUT@ from @IN@"
         )
     }
