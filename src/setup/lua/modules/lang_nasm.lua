@@ -22,7 +22,7 @@ function mod.get_nasm(path)
             escaped_path .. " @ARGS@ -MD @DEPFILE@ -MQ @OUT@ -o @OUT@ @IN@",
             "Assembling @IN@ from @OUT@",
             "gcc",
-            true
+            false
         )
     }
 

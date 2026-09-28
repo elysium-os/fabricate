@@ -99,7 +99,13 @@ pub fn setup(config_file: String, build_dir: String, prefix: String, options: Ve
 
         if compdb_rules.len() > 0 {
             let mut compdb_cmd = Command::new(ninja_path);
-            let output = match compdb_cmd.arg("-C").arg(&build_dir).arg("-t").arg("compdb").stdout(Stdio::piped()).output() {
+            compdb_cmd.arg("-C").arg(&build_dir).arg("-t").arg("compdb");
+
+            for rule in &compdb_rules {
+                compdb_cmd.arg(rule);
+            }
+
+            let output = match compdb_cmd.stdout(Stdio::piped()).output() {
                 Err(err) => {
                     println!("Warning: ninja compdb failed ({})", err);
                     return Ok(());
