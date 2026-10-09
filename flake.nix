@@ -1,44 +1,47 @@
 {
     inputs = {
-        nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-        flake-utils.url = "github:numtide/flake-utils";
+        nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     };
 
     outputs =
+        { self, nixpkgs, ... }:
+        let
+            systems = [
+                "x86_64-linux"
+                "aarch64-linux"
+                "x86_64-darwin"
+                "aarch64-darwin"
+            ];
+            forEachSystem = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
+        in
         {
-            self,
-            nixpkgs,
-            flake-utils,
-            ...
-        }:
-        flake-utils.lib.eachDefaultSystem (
-            system:
-            let
-                pkgs = import nixpkgs { inherit system; };
-                nativeBuildInputs = with pkgs; [
-                    pkgconf
-                    mdbook
-                ];
-                buildInputs = with pkgs; [
-                    openssl
-                    ninja
-                ];
-            in
-            {
-                devShells.default = pkgs.mkShell {
-                    shellHook = "export NIX_SHELL_NAME='fabricate'";
-                    nativeBuildInputs = nativeBuildInputs ++ [ pkgs.rustup ];
-                    inherit buildInputs;
-                };
+            devShells = forEachSystem (pkgs: {
+                default = pkgs.mkShell {
+                    NIX_SHELL_NAME = "fabricate";
 
-                defaultPackage = pkgs.rustPlatform.buildRustPackage {
+                    nativeBuildInputs = with pkgs; [
+                        mdbook
+                        rustup
+                        pkgconf
+                        openssl
+                    ];
+                };
+            });
+
+            packages = forEachSystem (pkgs: {
+                default = pkgs.rustPlatform.buildRustPackage {
                     name = "fabricate";
                     src = self;
 
                     cargoLock.lockFile = ./Cargo.lock;
 
-                    inherit nativeBuildInputs;
-                    inherit buildInputs;
+                    nativeBuildInputs = with pkgs; [
+                        pkgconf
+                    ];
+
+                    buildInputs = with pkgs; [
+                        openssl
+                    ];
 
                     meta = {
                         description = "Simple yet powerful meta buildsystem.";
@@ -47,6 +50,6 @@
                         maintainers = with pkgs.lib.maintainers; [ wux ];
                     };
                 };
-            }
-        );
+            });
+        };
 }
