@@ -21,6 +21,8 @@
 
                     nativeBuildInputs = with pkgs; [
                         rustup
+                        pkgconf
+                        openssl
                     ];
                 };
             });

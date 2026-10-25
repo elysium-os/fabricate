@@ -1,0 +1,25 @@
+[package]
+name = "fabricate"
+version = "0.4.0"
+edition = "2024"
+authors = ["WuX"]
+license = "BSD-3-Clause"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+clap_complete = "4.6.11"
+colored = "3.1.1"
+dirs = "7.0.0"
+env_logger = "0.11.11"
+log = "0.4.34"
+which = "8.0.6"
+mlua = { version = "0.12.2", features = ["lua55", "vendored", "error-send"] }
+include_dir = "0.7.4"
+toml = "1.1.8"
+serde = { version = "1.0.229", features = ["derive"] }
+git2 = { version = "0.21.0", features = ["https", "ssh", "vendored-libgit2"] }
+globset = "0.4.20"
+walkdir = "2.5.0"
+pathdiff = "0.2.3"
+serde_json = "1.0.154"

@@ -1,0 +1,9 @@
+# cargo/rust
+/target
+
+# fabricate testing
+fab.lua
+fab-deps.toml
+build
+fab-deps
+.luarc.json
